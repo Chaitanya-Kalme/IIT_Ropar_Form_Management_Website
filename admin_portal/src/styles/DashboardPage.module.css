@@ -1,0 +1,295 @@
+.dashboardWrapper{
+  display:flex;
+  flex-direction:column;
+  gap:28px;
+}
+
+/* Header */
+
+.pageHeader{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.pageTitle{
+  font-size:28px;
+  font-weight:700;
+  letter-spacing:-0.3px;
+}
+
+.pageSubtitle{
+  font-size:14px;
+  color:var(--text-muted);
+}
+
+/* Stats Grid */
+
+.statsGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:18px;
+}
+
+.statCard{
+  padding:20px;
+  border-radius:14px;
+  position:relative;
+
+  background:var(--card-bg);
+
+  border:1px solid var(--border);
+
+  transition:all .25s ease;
+}
+
+.statCard:hover{
+  transform:translateY(-4px);
+  box-shadow:0 15px 35px rgba(0,0,0,0.08);
+}
+
+.statTop{
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+
+.iconBox{
+  width:42px;
+  height:42px;
+  border-radius:12px;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  box-shadow:0 4px 12px rgba(0,0,0,0.06);
+}
+
+.statValue{
+  font-size:26px;
+  font-weight:700;
+}
+
+.statLabel{
+  font-size:13px;
+  color:var(--text-muted);
+}
+
+.statTrendText{
+  font-size:12px;
+  font-weight:600;
+  margin-top:4px;
+}
+
+.trend{
+  display:flex;
+  align-items:center;
+}
+
+.trendUp{
+  color:#22c55e;
+}
+
+.trendDown{
+  color:#ef4444;
+}
+
+/* Charts */
+
+.chartGrid{
+  display:grid;
+  grid-template-columns:2fr 1fr;
+  gap:20px;
+}
+
+.chartCardLarge,
+.chartCard{
+  background:var(--card-bg);
+  border-radius:16px;
+  padding:24px;
+  border:1px solid var(--border);
+
+  transition:.25s;
+}
+
+.chartCardLarge:hover,
+.chartCard:hover{
+  transform:translateY(-4px);
+  box-shadow:0 18px 40px rgba(0,0,0,0.08);
+}
+
+.chartHeader{
+  margin-bottom:16px;
+}
+
+.chartTitle{
+  font-weight:600;
+  font-size:16px;
+}
+
+.chartSubtitle{
+  font-size:12px;
+  color:var(--text-muted);
+}
+
+/* Pie Status */
+
+.statusList{
+  margin-top:12px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.statusRow{
+  display:flex;
+  justify-content:space-between;
+  font-size:13px;
+}
+
+.statusLeft{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.statusDot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+}
+
+.statusValue{
+  font-weight:600;
+}
+
+/* Table */
+
+.tableCard{
+  border-radius:16px;
+  background:var(--card-bg);
+  border:1px solid var(--border);
+}
+
+.tableHeader{
+  padding:22px;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  justify-content:space-between;
+}
+
+.viewAllBtn{
+  font-size:13px;
+  color:#4f46e5;
+  display:flex;
+  align-items:center;
+  gap:6px;
+
+  transition:.2s;
+}
+
+.viewAllBtn:hover{
+  transform:translateY(-1px);
+}
+
+.tableWrapper{
+  overflow:auto;
+}
+
+.table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+.table th{
+  text-align:left;
+  font-size:12px;
+  letter-spacing:.5px;
+  text-transform:uppercase;
+  padding:14px 22px;
+  color:var(--text-muted);
+}
+
+.table td{
+  padding:16px 22px;
+  font-size:14px;
+}
+
+.table tbody tr{
+  border-top:1px solid var(--border);
+  transition:.2s;
+}
+
+.table tbody tr:hover{
+  background:rgba(99,102,241,0.05);
+}
+
+/* User */
+
+.userCell{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.avatar{
+  width:32px;
+  height:32px;
+  border-radius:50%;
+
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  color:white;
+  font-size:12px;
+  font-weight:600;
+}
+
+/* badges */
+
+.levelBadge{
+  background:rgba(79,70,229,0.1);
+  color:#4f46e5;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:600;
+}
+
+.statusBadge{
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:600;
+}
+
+.statusApproved{
+  background:#dcfce7;
+  color:#15803d;
+}
+
+.statusPending{
+  background:#fef3c7;
+  color:#b45309;
+}
+
+.statusRejected{
+  background:#fee2e2;
+  color:#b91c1c;
+}
+
+.statusDefault{
+  background:#f1f5f9;
+}
+
+/* Responsive */
+
+@media (max-width:1100px){
+  .chartGrid{
+    grid-template-columns:1fr;
+  }
+}

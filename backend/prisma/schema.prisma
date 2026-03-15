@@ -15,11 +15,37 @@ datasource db {
 }
 
 model User {
+  id              String            @id @default(uuid()) @db.Uuid
+  userName        String
+  email           String
+  password        String
+  role            String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  form            Form?             @relation(fields: [formId], references: [id])
+  formId          Int?
+  formSubmissions FormSubmissions[]
+}
+
+model Form {
+  id              Int               @id @default(autoincrement())
+  title           String
+  description     String
+  deadline        DateTime
+  formStatus      Boolean           @default(true)
+  verifiersList   User[]
+  formFields      Json
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  formSubmissions FormSubmissions[]
+}
+
+model FormSubmissions {
   id        String   @id @default(uuid()) @db.Uuid
-  userName  String
-  email     String
-  password  String
-  role      String
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  formId    Int
+  Form      Form     @relation(fields: [formId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

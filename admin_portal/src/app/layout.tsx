@@ -1,0 +1,36 @@
+
+
+import type { Metadata } from 'next';
+import '../styles/globals.css';
+import { AppProvider } from '@/context/AppContext';
+import { Toaster } from 'sonner';
+import { SessionProvider } from "next-auth/react"
+
+export const metadata: Metadata = {
+  title: 'IIT Ropar — Form Portal Admin',
+  description: 'Form Verification Admin Portal for IIT Ropar',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <AppProvider>
+            {children}
+
+            <Toaster
+              position="top-right"
+              richColors
+              toastOptions={{
+                style: {
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '14px',
+                  borderRadius: '12px',
+                },
+              }}
+            />
+        </AppProvider>
+      </body>
+    </html>
+  );
+}
