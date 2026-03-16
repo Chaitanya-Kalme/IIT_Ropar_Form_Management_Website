@@ -164,7 +164,7 @@ export function ActivityLogsPage({ initialAdmin = 'All' }: ActivityLogsPageProps
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-sm text-gray-600 dark:text-gray-300 font-mono text-xs bg-gray-100 dark:bg-gray-700 px-2.5 py-1 rounded-lg">{log.target}</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300 font-mono bg-gray-100 dark:bg-gray-700 px-2.5 py-1 rounded-lg">{log.target}</span>
                   </td>
                 </tr>
               ))}
