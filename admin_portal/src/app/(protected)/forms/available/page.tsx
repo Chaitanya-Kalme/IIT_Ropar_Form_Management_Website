@@ -108,12 +108,12 @@ export default function AvailableFormsPage() {
               {filtered.map((form) => (
                 <tr key={form.id} className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/30 text-[#1E3A8A] dark:text-blue-400 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Link href={`/forms/available/${form.id}`} className="flex items-center gap-3 group">
+                      <div className="w-8 h-8 bg-blue-50 dark:bg-blue-900/30 text-[#1E3A8A] dark:text-blue-400 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors">
                         <Eye size={14} />
                       </div>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">{form.name}</span>
-                    </div>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-[#1E3A8A] dark:group-hover:text-blue-300 transition-colors">{form.name}</span>
+                    </Link>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{form.createdDate}</td>
                   <td className="px-6 py-4">
@@ -142,10 +142,13 @@ export default function AvailableFormsPage() {
                         <>
                           <div className="fixed inset-0 z-10" onClick={() => setOpenMenu(null)} />
                           <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-20 overflow-hidden py-1">
-                            <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                              onClick={() => { toast.info(`Edit form: ${form.name}`); setOpenMenu(null); }}>
+                            <Link
+                              href={`/forms/available/${form.id}/edit`}
+                              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                              onClick={() => setOpenMenu(null)}
+                            >
                               <Edit2 size={14} /> Edit
-                            </button>
+                            </Link>
                             <button
                               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                               onClick={() => toggleStatus(form.id)}

@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Search,
   Bell,
   Sun,
   Moon,
@@ -12,28 +11,122 @@ import {
   Menu,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { getFormById, getMemberById, getSubmissionById } from '@/data/mockData';
 import styles from '@/styles/TopNavbar.module.css';
 
-const routeLabels: Record<string, string[]> = {
-  '/dashboard': ['Dashboard'],
-  '/forms/create': ['Forms Management', 'Create Form'],
-  '/forms/available': ['Forms Management', 'Available Forms'],
-  '/forms/pending': ['Forms Management', 'Pending Approvals'],
-  '/forms/all': ['Forms Management', 'All Submitted Forms'],
-  '/users': ['Users Directory'],
-  '/members/add': ['Members Management', 'Add Member'],
-  '/members/all': ['Members Management', 'All Members'],
-  '/activity': ['Activity Logs'],
-  '/settings': ['Settings'],
-};
+interface BreadcrumbItem {
+  label: string;
+  href?: string;
+}
+
+function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
+  if (pathname === '/dashboard') {
+    return [{ label: 'Dashboard' }];
+  }
+
+  if (pathname === '/users') {
+    return [{ label: 'Dashboard', href: '/dashboard' }, { label: 'Users Directory' }];
+  }
+
+  if (pathname === '/activity') {
+    return [{ label: 'Dashboard', href: '/dashboard' }, { label: 'Activity Logs' }];
+  }
+
+  if (pathname === '/settings') {
+    return [{ label: 'Dashboard', href: '/dashboard' }, { label: 'Settings' }];
+  }
+
+  if (pathname === '/members/add') {
+    return [{ label: 'Dashboard', href: '/dashboard' }, { label: 'Members Management', href: '/members/all' }, { label: 'Add Member' }];
+  }
+
+  if (pathname === '/members/all') {
+    return [{ label: 'Dashboard', href: '/dashboard' }, { label: 'Members Management' }, { label: 'All Members' }];
+  }
+
+  const memberMatch = pathname.match(/^\/members\/all\/([^/]+)$/);
+  if (memberMatch) {
+    const member = getMemberById(memberMatch[1]);
+    return [
+      { label: 'Dashboard', href: '/dashboard' },
+      { label: 'Members Management', href: '/members/all' },
+      { label: 'All Members', href: '/members/all' },
+      { label: member?.name ?? 'Member Dashboard' },
+    ];
+  }
+
+  const memberEditMatch = pathname.match(/^\/members\/all\/([^/]+)\/edit$/);
+  if (memberEditMatch) {
+    const member = getMemberById(memberEditMatch[1]);
+    return [
+      { label: 'Dashboard', href: '/dashboard' },
+      { label: 'Members Management', href: '/members/all' },
+      { label: 'All Members', href: '/members/all' },
+      { label: member?.name ?? 'Member', href: `/members/all/${memberEditMatch[1]}` },
+      { label: 'Edit Member' },
+    ];
+  }
+
+  if (pathname === '/forms/create') {
+    return [{ label: 'Dashboard', href: '/dashboard' }, { label: 'Forms Management', href: '/forms/available' }, { label: 'Create Form' }];
+  }
+
+  if (pathname === '/forms/available') {
+    return [{ label: 'Dashboard', href: '/dashboard' }, { label: 'Forms Management' }, { label: 'Available Forms' }];
+  }
+
+  if (pathname === '/forms/pending') {
+    return [{ label: 'Dashboard', href: '/dashboard' }, { label: 'Forms Management', href: '/forms/available' }, { label: 'Pending Approvals' }];
+  }
+
+  if (pathname === '/forms/all') {
+    return [{ label: 'Dashboard', href: '/dashboard' }, { label: 'Forms Management', href: '/forms/available' }, { label: 'All Submitted Forms' }];
+  }
+
+  const availableMatch = pathname.match(/^\/forms\/available\/([^/]+)$/);
+  if (availableMatch) {
+    const form = getFormById(availableMatch[1]);
+    return [
+      { label: 'Dashboard', href: '/dashboard' },
+      { label: 'Forms Management', href: '/forms/available' },
+      { label: 'Available Forms', href: '/forms/available' },
+      { label: form?.name ?? 'Form Dashboard' },
+    ];
+  }
+
+  const editMatch = pathname.match(/^\/forms\/available\/([^/]+)\/edit$/);
+  if (editMatch) {
+    const form = getFormById(editMatch[1]);
+    return [
+      { label: 'Dashboard', href: '/dashboard' },
+      { label: 'Forms Management', href: '/forms/available' },
+      { label: 'Available Forms', href: '/forms/available' },
+      { label: form?.name ?? 'Form', href: `/forms/available/${editMatch[1]}` },
+      { label: 'Edit Form' },
+    ];
+  }
+
+  const submissionMatch = pathname.match(/^\/forms\/all\/([^/]+)$/);
+  if (submissionMatch) {
+    const submission = getSubmissionById(submissionMatch[1]);
+    return [
+      { label: 'Dashboard', href: '/dashboard' },
+      { label: 'Forms Management', href: '/forms/available' },
+      { label: 'All Submitted Forms', href: '/forms/all' },
+      { label: submission?.user ?? 'Submission Details' },
+    ];
+  }
+
+  return [{ label: 'Dashboard' }];
+}
 
 export function TopNavbar() {
   const { darkMode, toggleDarkMode, currentUser, notifications, sidebarCollapsed, setSidebarCollapsed } = useApp();
   const pathname = usePathname();
   const [showNotifications, setShowNotifications] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
+  
 
-  const breadcrumbs = routeLabels[pathname] || ['Dashboard'];
+  const breadcrumbs = getBreadcrumbs(pathname);
 
   const notificationItems = [
     { id: 1, text: 'New hostel leave application submitted', time: '5 min ago', unread: true },
@@ -45,54 +138,33 @@ export function TopNavbar() {
 
   return (
     <header className={styles.navbar}>
-      {/* Mobile menu */}
-      <button
-        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        className={styles.mobileToggle}
-      >
+      <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className={styles.mobileToggle}>
         <Menu size={20} />
       </button>
 
-      {/* Breadcrumbs */}
       <div className={styles.breadcrumbs}>
-        {breadcrumbs.map((crumb, idx) => (
-          <React.Fragment key={idx}>
-            {idx > 0 && <ChevronRight size={14} className={styles.breadcrumbIcon} />}
-            <span
-              className={
-                idx === breadcrumbs.length - 1
-                  ? styles.breadcrumbActive
-                  : styles.breadcrumbItem
-              }
-            >
-              {crumb}
-            </span>
+        {breadcrumbs.map((crumb, index) => (
+          <React.Fragment key={`${crumb.label}-${index}`}>
+            {index > 0 && <ChevronRight size={14} className={styles.breadcrumbIcon} />}
+            {crumb.href ? (
+              <Link href={crumb.href} className={styles.breadcrumbLink}>
+                {crumb.label}
+              </Link>
+            ) : (
+              <span className={index === breadcrumbs.length - 1 ? styles.breadcrumbActive : styles.breadcrumbItem}>
+                {crumb.label}
+              </span>
+            )}
           </React.Fragment>
         ))}
       </div>
 
-      {/* Search */}
-      <div className={styles.searchWrapper}>
-        <Search size={16} className={styles.searchIcon} />
-        <input
-          type="text"
-          value={searchValue}
-          onChange={(e) => setSearchValue(e.target.value)}
-          placeholder="Search..."
-          className={styles.searchInput}
-        />
-      </div>
+ 
 
-      {/* Notifications */}
       <div className={styles.notificationWrapper}>
-        <button
-          onClick={() => setShowNotifications(!showNotifications)}
-          className={styles.iconButton}
-        >
+        <button onClick={() => setShowNotifications(!showNotifications)} className={styles.iconButton}>
           <Bell size={20} />
-          {notifications > 0 && (
-            <span className={styles.notificationBadge}>{notifications}</span>
-          )}
+          {notifications > 0 && <span className={styles.notificationBadge}>{notifications}</span>}
         </button>
 
         {showNotifications && (
@@ -104,16 +176,16 @@ export function TopNavbar() {
                 <button className={styles.markRead}>Mark all read</button>
               </div>
               <div className={styles.notificationList}>
-                {notificationItems.map(n => (
+                {notificationItems.map((notification) => (
                   <div
-                    key={n.id}
-                    className={`${styles.notificationItem} ${n.unread ? styles.unread : ''}`}
+                    key={notification.id}
+                    className={`${styles.notificationItem} ${notification.unread ? styles.unread : ''}`}
                   >
                     <div className={styles.notificationContent}>
-                      {n.unread && <span className={styles.dot} />}
+                      {notification.unread && <span className={styles.dot} />}
                       <div>
-                        <p className={styles.notificationText}>{n.text}</p>
-                        <p className={styles.notificationTime}>{n.time}</p>
+                        <p className={styles.notificationText}>{notification.text}</p>
+                        <p className={styles.notificationTime}>{notification.time}</p>
                       </div>
                     </div>
                   </div>
@@ -124,16 +196,10 @@ export function TopNavbar() {
         )}
       </div>
 
-      {/* Theme toggle */}
       <button onClick={toggleDarkMode} className={styles.iconButton}>
-        {darkMode ? (
-          <Sun size={20} className={styles.sunIcon} />
-        ) : (
-          <Moon size={20} />
-        )}
+        {darkMode ? <Sun size={20} className={styles.sunIcon} /> : <Moon size={20} />}
       </button>
 
-      {/* Profile */}
       <Link href="/settings" className={styles.profile}>
         <div className={styles.avatar}>{currentUser.initials}</div>
         <div className={styles.profileText}>

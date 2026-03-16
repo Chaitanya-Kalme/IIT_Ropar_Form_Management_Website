@@ -54,14 +54,30 @@ font-size:14px;
 color:#6b7280;
 }
 
+.breadcrumbLink{
+font-size:14px;
+color:#6b7280;
+transition:color .2s ease;
+white-space:nowrap;
+}
+
+.breadcrumbLink:hover{
+color:#1e3a8a;
+}
+
 .breadcrumbActive{
 font-size:14px;
 font-weight:600;
 color:#111827;
+white-space:nowrap;
 }
 
 :global(.dark) .breadcrumbActive{
 color:white;
+}
+
+:global(.dark) .breadcrumbLink:hover{
+color:#93c5fd;
 }
 
 .breadcrumbIcon{
