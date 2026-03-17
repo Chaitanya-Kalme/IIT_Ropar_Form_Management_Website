@@ -1,16 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Eye, EyeOff, Loader2, GraduationCap, Shield, FileCheck, ArrowRight } from 'lucide-react';
+import {
+  Eye, EyeOff, Loader2, GraduationCap,
+  Shield, FileCheck, ArrowRight,
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { useApp } from '@/context/AppContext';
 import { signIn, useSession } from 'next-auth/react';
+import { AuthService } from '@/lib/auth.service';
 
 export default function LoginPage() {
-  const { setIsLoggedIn } = useApp();
+  // ❌ Removed: const { login } = useApp() — no longer needed
+  // useSession handles auth state, AppContext derives from it automatically
   const router = useRouter();
+  const { data: session, status } = useSession();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -18,7 +24,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const { data: session, status } = useSession();
+
+  // Redirect once NextAuth session is active (covers Google OAuth)
+  useEffect(() => {
+    if (status === 'authenticated') {
+      toast.success(`Welcome, ${session?.user?.name ?? 'Admin'}!`);
+      router.push('/dashboard');
+    }
+  }, [status, session, router]);
 
   const validate = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -33,23 +46,39 @@ export default function LoginPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
+
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1500));
+
+    // Goes through NextAuth CredentialsProvider → authorize() → sets JWT cookie
+    const result = await signIn('credentials', {
+      email,
+      password,
+      redirect: false,
+    });
+
     setLoading(false);
-    if (email === 'admin@iitrpr.ac.in' && password === 'admin123') {
-      toast.success('Login successful! Welcome back, Admin.');
-      setIsLoggedIn(true);
-      router.push('/dashboard');
+
+    if (result?.ok) {
+      // useEffect above will trigger on status → 'authenticated' and redirect
+      toast.success('Welcome back!');
     } else {
-      toast.error('Invalid credentials. Try admin@iitrpr.ac.in / admin123');
+      toast.error('Invalid credentials. Please try again.');
       setErrors({ email: ' ', password: 'Invalid email or password' });
     }
   };
 
+  // Don't render the form if session is loading or already authenticated
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+        <Loader2 size={32} className="animate-spin text-[#1E3A8A]" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-[#F8FAFC]" style={{ fontFamily: 'Inter, sans-serif' }}>
-      {/* Left Panel - Branded */}
+      {/* Left Panel */}
       <div className="hidden lg:flex flex-col justify-between w-1/2 bg-[#1E3A8A] p-12 relative overflow-hidden">
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/5 rounded-full" />
@@ -100,12 +129,12 @@ export default function LoginPage() {
 
         <div className="relative z-10">
           <p className="text-blue-400 text-xs">
-            © 2025 IIT Ropar. All rights reserved. | <span className="italic">धियो यो नः प्रचोदयात्</span>
+            © 2026 IIT Ropar. All rights reserved. | <span className="italic">धियो यो नः प्रचोदयात्</span>
           </p>
         </div>
       </div>
 
-      {/* Right Panel - Login Form */}
+      {/* Right Panel */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="lg:hidden flex items-center gap-3 mb-8">
@@ -132,12 +161,11 @@ export default function LoginPage() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => { setEmail(e.target.value); setErrors(p => ({ ...p, email: undefined })); }}
+                  onChange={e => { setEmail(e.target.value); setErrors(p => ({ ...p, email: undefined })); }}
                   placeholder="admin@iitrpr.ac.in"
-                  className={`w-full px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-all bg-gray-50 ${errors.email
-                      ? 'border-red-400 focus:ring-red-200 bg-red-50'
-                      : 'border-gray-200 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6]'
-                    }`}
+                  className={`w-full px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-all bg-gray-50 ${
+                    errors.email ? 'border-red-400 focus:ring-red-200 bg-red-50' : 'border-gray-200 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6]'
+                  }`}
                 />
                 {errors.email && errors.email !== ' ' && (
                   <p className="text-red-500 text-xs mt-1">{errors.email}</p>
@@ -147,20 +175,17 @@ export default function LoginPage() {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-sm font-medium text-gray-700">Password</label>
-                  <button type="button" className="text-xs text-[#3B82F6] hover:underline">
-                    Forgot Password?
-                  </button>
+                  <button type="button" className="text-xs text-[#3B82F6] hover:underline">Forgot Password?</button>
                 </div>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
-                    onChange={(e) => { setPassword(e.target.value); setErrors(p => ({ ...p, password: undefined })); }}
+                    onChange={e => { setPassword(e.target.value); setErrors(p => ({ ...p, password: undefined })); }}
                     placeholder="Enter your password"
-                    className={`w-full px-4 py-2.5 pr-11 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-all bg-gray-50 ${errors.password
-                        ? 'border-red-400 focus:ring-red-200 bg-red-50'
-                        : 'border-gray-200 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6]'
-                      }`}
+                    className={`w-full px-4 py-2.5 pr-11 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-all bg-gray-50 ${
+                      errors.password ? 'border-red-400 focus:ring-red-200 bg-red-50' : 'border-gray-200 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6]'
+                    }`}
                   />
                   <button
                     type="button"
@@ -170,9 +195,7 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-                {errors.password && (
-                  <p className="text-red-500 text-xs mt-1">{errors.password}</p>
-                )}
+                {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
               </div>
 
               <div className="flex items-center gap-2">
@@ -180,7 +203,7 @@ export default function LoginPage() {
                   type="checkbox"
                   id="remember"
                   checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
+                  onChange={e => setRememberMe(e.target.checked)}
                   className="w-4 h-4 text-[#1E3A8A] border-gray-300 rounded cursor-pointer"
                 />
                 <label htmlFor="remember" className="text-sm text-gray-600 cursor-pointer">Remember Me</label>
@@ -191,17 +214,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#1E3A8A] hover:bg-[#1e3a8a]/90 text-white text-sm font-semibold rounded-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-blue-900/20"
               >
-                {loading ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  <>
-                    Sign In
-                    <ArrowRight size={16} />
-                  </>
-                )}
+                {loading ? <><Loader2 size={16} className="animate-spin" /> Signing in...</> : <>Sign In <ArrowRight size={16} /></>}
               </button>
             </form>
 
@@ -214,17 +227,14 @@ export default function LoginPage() {
             <button
               onClick={async () => {
                 setGoogleLoading(true);
-                await signIn("google", { callbackUrl: "/dashboard" }); // 👈 redirects to /dashboard after login
+                await signIn('google', { callbackUrl: '/dashboard' });
                 setGoogleLoading(false);
               }}
               disabled={googleLoading}
               className="w-full flex items-center justify-center gap-3 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {googleLoading ? (
-                <>
-                  <Loader2 size={16} className="animate-spin text-gray-400" />
-                  Connecting to Google...
-                </>
+                <><Loader2 size={16} className="animate-spin text-gray-400" /> Connecting to Google...</>
               ) : (
                 <>
                   <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -237,11 +247,6 @@ export default function LoginPage() {
                 </>
               )}
             </button>
-            <p className="text-center text-gray-400 text-xs mt-3 leading-relaxed">
-              Google SSO currently enabled for frontend demo.<br />
-              Backend handles standard auth.
-            </p>
-
             <div className="mt-5 p-3 bg-blue-50 rounded-lg border border-blue-100">
               <p className="text-xs text-[#1E3A8A] font-medium">Demo Credentials</p>
               <p className="text-xs text-blue-600 mt-0.5">Email: admin@iitrpr.ac.in</p>
