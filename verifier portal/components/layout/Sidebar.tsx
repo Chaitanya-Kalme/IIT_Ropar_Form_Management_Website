@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import Image from 'next/image';
 import {
   LayoutDashboard, FileText, Clock, FileStack, Activity,
   User, LogOut, Shield, ChevronLeft, Menu
@@ -31,9 +32,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b" style={{ borderColor: 'var(--border)', minHeight: 72 }}>
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg, #1E3A8A, #3B82F6)' }}>
-          <Shield className="w-5 h-5 text-white" />
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0">
+          <Image src="/logo.png" alt="IIT Ropar" width={40} height={40} />
         </div>
         {!collapsed && (
           <div className="overflow-hidden animate-fade-in">

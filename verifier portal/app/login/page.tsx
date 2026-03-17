@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Lock, Mail, ArrowRight, Loader2, Shield } from 'lucide-react';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -58,9 +59,9 @@ export default function LoginPage() {
 
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 shadow-glow-blue"
-              style={{ background: 'linear-gradient(135deg, #1E3A8A, #3B82F6)' }}>
-              <Shield className="w-8 h-8 text-white" />
+            <div className=" rounded-2xl flex items-center justify-center mb-4 shadow-glow-blue"
+              style={{ background: 'linear-gradient(135deg, #1E3A8A, #FFFFFF)' }}>
+              <Image src="/logo.png" alt="IIT Ropar" width={70} height={100} />
             </div>
             <div className="text-center">
               <h1 className="text-2xl font-bold text-white mb-1">IIT Ropar</h1>

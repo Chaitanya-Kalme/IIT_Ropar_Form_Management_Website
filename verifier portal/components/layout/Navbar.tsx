@@ -118,7 +118,7 @@ export default function Navbar() {
               style={{ background: 'linear-gradient(135deg, #1E3A8A, #3B82F6)' }}>
               {currentUser.avatar}
             </div>
-            <span className="text-sm font-semibold hidden sm:block" style={{ color: 'var(--text)' }}>{currentUser.name.split(' ')[0]}</span>
+            {/* <span className="text-sm font-semibold hidden sm:block" style={{ color: 'var(--text)' }}>{currentUser.name}</span> */}
           </button>
 
           {showUserMenu && (
