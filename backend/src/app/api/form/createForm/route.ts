@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 
@@ -21,8 +22,19 @@ const isValidField = (field: any) => {
   return true;
 };
 
-export default async function POST(req: NextRequest){
+export async function POST(req: NextRequest){
     try {
+        // Check that admin is logged in or not. 
+        // const data = await getServerSession()
+
+        // if(!data?.user && data?.user.role!=="Admin"){
+        //     return NextResponse.json({
+        //         success: false,
+        //         message: "Admin is not logged in "
+        //     })
+        // }
+
+
         const {title, description, deadline, formStatus , fields} = await req.json()
 
         if(!title || !description || !deadline || !formStatus || !fields){
@@ -39,8 +51,24 @@ export default async function POST(req: NextRequest){
             }, { status: 400 });
         }
 
+        const status = true? formStatus==="True" : false
 
-        
+        const createdForm = await prisma.form.create({
+            data:{
+                title,
+                description,
+                deadline,
+                formStatus: status,
+                formFields: fields
+            }
+        })
+
+        return NextResponse.json({
+            success: true,
+            message: "Form Created Successfully",
+            data: createdForm
+        })
+
         
     } catch (error:any) {
         console.log(error)
