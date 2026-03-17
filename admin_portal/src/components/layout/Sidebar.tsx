@@ -2,24 +2,12 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import {
-  LayoutDashboard,
-  FileText,
-  FilePlus,
-  List,
-  Clock,
-  CheckSquare,
-  Users,
-  UserPlus,
-  UserCheck,
-  Activity,
-  Settings,
-  LogOut,
-  ChevronDown,
-  ChevronRight,
-  X,
+  LayoutDashboard, FileText, FilePlus, List, Clock,
+  CheckSquare, Users, UserPlus, UserCheck, Activity,
+  Settings, LogOut, ChevronDown, ChevronRight, X,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import styles from '@/styles/Sidebar.module.css';
@@ -88,13 +76,7 @@ function NavItem({ icon, label, to, children, collapsed }: NavItemProps) {
 }
 
 export function Sidebar() {
-  const { sidebarCollapsed, setSidebarCollapsed, setIsLoggedIn } = useApp();
-  const router = useRouter();
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    router.push('/login');
-  };
+  const { sidebarCollapsed, setSidebarCollapsed, logout, currentUser } = useApp();
 
   return (
     <aside className={`${styles.sidebar} ${sidebarCollapsed ? styles.collapsedSidebar : ''}`}>
@@ -121,61 +103,42 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className={styles.nav}>
-        <NavItem
-          icon={<LayoutDashboard size={18} />}
-          label="Dashboard"
-          to="/dashboard"
-          collapsed={sidebarCollapsed}
-        />
+        <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" to="/dashboard" collapsed={sidebarCollapsed} />
 
         <NavItem
           icon={<FileText size={18} />}
           label="Forms Management"
           collapsed={sidebarCollapsed}
           children={[
-            { label: 'Create Form', to: '/forms/create', icon: <FilePlus size={14} /> },
-            { label: 'Available Forms', to: '/forms/available', icon: <List size={14} /> },
-            { label: 'Pending Approvals', to: '/forms/pending', icon: <Clock size={14} /> },
-            { label: 'All Submitted Forms', to: '/forms/all', icon: <CheckSquare size={14} /> },
+            { label: 'Create Form',         to: '/forms/create',    icon: <FilePlus size={14} /> },
+            { label: 'Available Forms',     to: '/forms/available', icon: <List size={14} /> },
+            { label: 'Pending Approvals',   to: '/forms/pending',   icon: <Clock size={14} /> },
+            { label: 'All Submitted Forms', to: '/forms/all',       icon: <CheckSquare size={14} /> },
           ]}
         />
 
-        <NavItem
-          icon={<Users size={18} />}
-          label="Users Directory"
-          to="/users"
-          collapsed={sidebarCollapsed}
-        />
+        <NavItem icon={<Users size={18} />}    label="Users Directory"    to="/users"    collapsed={sidebarCollapsed} />
 
         <NavItem
           icon={<UserCheck size={18} />}
           label="Members Management"
           collapsed={sidebarCollapsed}
           children={[
-            { label: 'Add Member', to: '/members/add', icon: <UserPlus size={14} /> },
+            { label: 'Add Member',  to: '/members/add', icon: <UserPlus size={14} /> },
             { label: 'All Members', to: '/members/all', icon: <UserCheck size={14} /> },
           ]}
         />
 
-        <NavItem
-          icon={<Activity size={18} />}
-          label="Activity Logs"
-          to="/activity"
-          collapsed={sidebarCollapsed}
-        />
-
-        <NavItem
-          icon={<Settings size={18} />}
-          label="Settings"
-          to="/settings"
-          collapsed={sidebarCollapsed}
-        />
+        <NavItem icon={<Activity size={18} />} label="Activity Logs" to="/activity" collapsed={sidebarCollapsed} />
+        <NavItem icon={<Settings size={18} />} label="Settings"      to="/settings" collapsed={sidebarCollapsed} />
       </nav>
 
-      {/* Footer */}
+      {/* Footer — user info + logout */}
       <div className={styles.footer}>
+
+        {/* Logout — calls NextAuth signOut via context */}
         <button
-          onClick={handleLogout}
+          onClick={logout}
           className={`${styles.logoutBtn} ${sidebarCollapsed ? styles.collapsed : ''}`}
         >
           <LogOut size={18} />
