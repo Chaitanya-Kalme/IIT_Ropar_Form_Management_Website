@@ -34,7 +34,7 @@ model Verifier {
   id         String   @id @default(uuid()) @db.Uuid
   userName   String
   email      String
-  role       Role
+  role       String
   department String
   mobileNo   String
   createdAt  DateTime @default(now())

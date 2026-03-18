@@ -1,80 +1,55 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import {
   Eye, EyeOff, Loader2, GraduationCap,
-  Shield, FileCheck, ArrowRight,
+  Shield, FileCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { signIn, useSession } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { AuthService } from '@/lib/auth.service';
 
 export default function LoginPage() {
-  // ❌ Removed: const { login } = useApp() — no longer needed
-  // useSession handles auth state, AppContext derives from it automatically
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
+  const { status } = useSession();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
-  // Redirect once NextAuth session is active (covers Google OAuth)
+  // Show unauthorized toast if NextAuth returns an error
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error === 'AccessDenied') {
+      toast.error('Access denied. You are not a registered admin.');
+    } else if (error) {
+      toast.error('Authentication failed. Please try again.');
+    }
+  }, [searchParams]);
+
+  // Redirect if already authenticated
   useEffect(() => {
     if (status === 'authenticated') {
-      toast.success(`Welcome, ${session?.user?.name ?? 'Admin'}!`);
-      router.push('/dashboard');
+      toast.success('Welcome back, Admin!');
+      router.replace('/dashboard');
     }
-  }, [status, session, router]);
+  }, [status, router]);
 
-  const validate = () => {
-    const newErrors: { email?: string; password?: string } = {};
-    if (!email) newErrors.email = 'Email address is required';
-    else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Please enter a valid email address';
-    if (!password) newErrors.password = 'Password is required';
-    else if (password.length < 6) newErrors.password = 'Password must be at least 6 characters';
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-
-    setLoading(true);
-
-    // Goes through NextAuth CredentialsProvider → authorize() → sets JWT cookie
-    const result = await signIn('credentials', {
-      email,
-      password,
-      redirect: false,
-    });
-
-    setLoading(false);
-
-    if (result?.ok) {
-      // useEffect above will trigger on status → 'authenticated' and redirect
-      toast.success('Welcome back!');
-    } else {
-      toast.error('Invalid credentials. Please try again.');
-      setErrors({ email: ' ', password: 'Invalid email or password' });
-    }
-  };
-
-  // Don't render the form if session is loading or already authenticated
-  if (status === 'loading') {
+  // Show spinner while session is resolving or redirecting
+  if (status === 'loading' || status === 'authenticated') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
         <Loader2 size={32} className="animate-spin text-[#1E3A8A]" />
       </div>
     );
   }
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    await AuthService.loginWithGoogle();
+    setGoogleLoading(false);
+  };
 
   return (
     <div className="min-h-screen flex bg-[#F8FAFC]" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -111,7 +86,7 @@ export default function LoginPage() {
           <div className="space-y-4">
             {[
               { icon: <Shield size={20} />, title: 'Multi-level Verification', desc: 'Caretaker → HOD → Dean approval chain' },
-              { icon: <FileCheck size={20} />, title: 'Dynamic Form Builder', desc: 'Create custom forms with drag-and-drop' },
+              { icon: <EyeOff size={20} />, title: 'Dynamic Form Builder', desc: 'Create custom forms with drag-and-drop' },
               { icon: <GraduationCap size={20} />, title: 'Student Management', desc: 'Unified directory for all registered users' },
             ].map((f, i) => (
               <div key={i} className="flex items-start gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
@@ -155,81 +130,21 @@ export default function LoginPage() {
               <p className="text-gray-500 text-sm">Sign in to access the admin portal</p>
             </div>
 
-            <form onSubmit={handleSignIn} className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => { setEmail(e.target.value); setErrors(p => ({ ...p, email: undefined })); }}
-                  placeholder="admin@iitrpr.ac.in"
-                  className={`w-full px-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-all bg-gray-50 ${
-                    errors.email ? 'border-red-400 focus:ring-red-200 bg-red-50' : 'border-gray-200 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6]'
-                  }`}
-                />
-                {errors.email && errors.email !== ' ' && (
-                  <p className="text-red-500 text-xs mt-1">{errors.email}</p>
-                )}
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-sm font-medium text-gray-700">Password</label>
-                  <button type="button" className="text-xs text-[#3B82F6] hover:underline">Forgot Password?</button>
+            {/* Show inline error banner if access was denied */}
+            {searchParams.get('error') === 'AccessDenied' && (
+              <div className="mb-5 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                <EyeOff size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-red-700 text-sm font-medium">Access Denied</p>
+                  <p className="text-red-500 text-xs mt-0.5">
+                    Your Google account is not registered as an admin. Contact your system administrator.
+                  </p>
                 </div>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => { setPassword(e.target.value); setErrors(p => ({ ...p, password: undefined })); }}
-                    placeholder="Enter your password"
-                    className={`w-full px-4 py-2.5 pr-11 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-all bg-gray-50 ${
-                      errors.password ? 'border-red-400 focus:ring-red-200 bg-red-50' : 'border-gray-200 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6]'
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-                {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
               </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  checked={rememberMe}
-                  onChange={e => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 text-[#1E3A8A] border-gray-300 rounded cursor-pointer"
-                />
-                <label htmlFor="remember" className="text-sm text-gray-600 cursor-pointer">Remember Me</label>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#1E3A8A] hover:bg-[#1e3a8a]/90 text-white text-sm font-semibold rounded-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-blue-900/20"
-              >
-                {loading ? <><Loader2 size={16} className="animate-spin" /> Signing in...</> : <>Sign In <ArrowRight size={16} /></>}
-              </button>
-            </form>
-
-            <div className="flex items-center gap-3 my-5">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-gray-400 text-xs">OR</span>
-              <div className="flex-1 h-px bg-gray-200" />
-            </div>
+            )}
 
             <button
-              onClick={async () => {
-                setGoogleLoading(true);
-                await signIn('google', { callbackUrl: '/dashboard' });
-                setGoogleLoading(false);
-              }}
+              onClick={handleGoogleSignIn}
               disabled={googleLoading}
               className="w-full flex items-center justify-center gap-3 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -247,11 +162,10 @@ export default function LoginPage() {
                 </>
               )}
             </button>
-            <div className="mt-5 p-3 bg-blue-50 rounded-lg border border-blue-100">
-              <p className="text-xs text-[#1E3A8A] font-medium">Demo Credentials</p>
-              <p className="text-xs text-blue-600 mt-0.5">Email: admin@iitrpr.ac.in</p>
-              <p className="text-xs text-blue-600">Password: admin123</p>
-            </div>
+
+            <p className="text-center text-gray-400 text-xs mt-4 leading-relaxed">
+              Only registered IIT Ropar admin accounts can access this portal.
+            </p>
           </div>
         </div>
       </div>

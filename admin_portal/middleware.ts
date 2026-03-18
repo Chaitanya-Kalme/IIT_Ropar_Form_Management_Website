@@ -1,17 +1,27 @@
 import { withAuth } from 'next-auth/middleware';
+import { NextResponse } from 'next/server';
 
-export default withAuth({
-  pages: {
-    signIn: '/sign-in', // redirects here if not authenticated
-  },
-});
+export default withAuth(
+    function middleware(req) {
+        return NextResponse.next();
+    },
+    {
+        callbacks: {
+            authorized: ({ token }) => !!token,
+        },
+        pages: {
+            signIn: '/login',
+        },
+    }
+);
 
 export const config = {
-  matcher: [
-    '/dashboard/:path*',
-    '/forms/:path*',
-    '/users/:path*',
-    '/students/:path*',
-    // add every protected route here
-  ],
+    matcher: [
+        '/dashboard/:path*',
+        '/forms/:path*',
+        '/users/:path*',
+        '/members/:path*',
+        '/activity/:path*',
+        '/settings/:path*',
+    ],
 };

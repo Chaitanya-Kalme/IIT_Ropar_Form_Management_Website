@@ -7,13 +7,15 @@ declare module 'next-auth'{
         userName?: string,
         email?: string,
         role?: string
+        portal?: string
     }
     interface Session{
         user: {
             id?: string,
             userName?: string,
             email?: string,
-            role?: string
+            role?: string,
+            portal?: string
         } & DefaultSession ['user']
     }
 }
@@ -23,6 +25,7 @@ declare module 'next-auth/jwt' {
         id?: string,
         userName?: string
         email?: string,
-        role?: string
+        role?: string,
+        portal?: string
     }
 }
