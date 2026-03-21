@@ -19,48 +19,89 @@ enum Role {
   HOD
   Caretaker
   Dean
+  Faculty
+}
+
+enum SubmissionStatus {
+  Pending
+  Approved
+  Rejected
 }
 
 model User {
   id              String            @id @default(uuid()) @db.Uuid
   userName        String
-  email           String
+  email           String            @unique
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   formSubmissions FormSubmissions[]
 }
 
 model Verifier {
-  id         String   @id @default(uuid()) @db.Uuid
-  userName   String
-  email      String
-  role       String
-  department String
-  mobileNo   String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  form       Form[]
+  id                  String               @id @default(uuid()) @db.Uuid
+  userName            String
+  email               String               @unique
+  role                Role
+  department          String
+  mobileNo            String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  formVerifierLevels  FormVerifierLevel[]  // relation to join table
+  verificationActions VerificationAction[]
 }
 
 model Form {
-  id              Int               @id @default(autoincrement())
+  id              Int                 @id @default(autoincrement())
   title           String
   description     String
   deadline        DateTime
-  formStatus      Boolean           @default(true)
-  verifiersList   Verifier[]
+  formStatus      Boolean             @default(true)
   formFields      Json
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  verifiersList   FormVerifierLevel[] // relation to join table
   formSubmissions FormSubmissions[]
 }
 
+// Join table — defines ordered verification chain per form
+model FormVerifierLevel {
+  id         String   @id @default(uuid()) @db.Uuid
+  formId     Int
+  form       Form     @relation(fields: [formId], references: [id])
+  verifierId String   @db.Uuid
+  verifier   Verifier @relation(fields: [verifierId], references: [id])
+  level      Int      // 1, 2, 3... defines verification order
+
+  createdAt  DateTime @default(now())
+
+  @@unique([formId, level])      // one verifier per level per form
+  @@unique([formId, verifierId]) // same verifier can't appear twice in same form
+}
+
 model FormSubmissions {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid
-  user      User     @relation(fields: [userId], references: [id])
-  formId    Int
-  Form      Form     @relation(fields: [formId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String               @id @default(uuid()) @db.Uuid
+  userId              String               @db.Uuid
+  user                User                 @relation(fields: [userId], references: [id])
+  formId              Int
+  form                Form                 @relation(fields: [formId], references: [id])
+  formData            Json                 // submitted field values
+  currentLevel        Int                  @default(1)
+  overallStatus       SubmissionStatus     @default(Pending)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  verificationActions VerificationAction[]
+}
+
+model VerificationAction {
+  id           String          @id @default(uuid()) @db.Uuid
+  submissionId String          @db.Uuid
+  submission   FormSubmissions @relation(fields: [submissionId], references: [id])
+  verifierId   String          @db.Uuid
+  verifier     Verifier        @relation(fields: [verifierId], references: [id])
+  level        Int
+  status       SubmissionStatus
+  remark       String?
+  actionAt     DateTime        @default(now())
+
+  @@unique([submissionId, level]) // one action per level per submission
 }

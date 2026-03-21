@@ -2,30 +2,46 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { Role } from "../../../../../generated/prisma/enums";
+import { authOptions } from "../../auth/[...nextauth]/options";
+
+const validRoles = ['Caretaker', 'HOD', 'Dean', 'Admin'];
 
 
 export async function POST(req: NextRequest) {
     try {
 
         // Check that the admin is logged in or not.
-        const session = await getServerSession()
+        const session = await getServerSession(authOptions)
 
         if (!session || session.user?.role !== "Admin") {
             return NextResponse.json({
                 success: false,
                 message: "Admin is not logged in"
-            }, { status: 400 })
+            }, { status: 401 })
         }
 
 
-
         const { memberName, email, mobileNo, department, role } = await req.json()
+        console.log(memberName,email,mobileNo,department,role)
+
 
         if (!memberName || !email || !mobileNo || !department || !role) {
             return NextResponse.json({
                 success: false,
                 message: "All fields are required"
             }, { status: 404 })
+        }
+
+        if (!/\S+@\S+\.\S+/.test(email)) {
+            return NextResponse.json({ success: false, message: 'Invalid email format.' }, { status: 400 });
+        }
+
+        const validRoles = Object.values(Role);
+        if (!validRoles.includes(role as Role)) {
+            return NextResponse.json(
+                { success: false, message: `Role must be one of: ${validRoles.join(', ')}.` },
+                { status: 400 }
+            );
         }
 
         // Check that the user already exist in the verifier model or not. 
@@ -42,30 +58,15 @@ export async function POST(req: NextRequest) {
             })
         }
 
-        // Check that the role is correct or not.
-        let isRoleCorrect;
-
-        if(role==="Admin")  isRoleCorrect= Role.Admin
-        else if(role==="Caretaker") isRoleCorrect= Role.Caretaker
-        else if(role==="HOD")   isRoleCorrect= Role.HOD
-        else if(role==="Dean")  isRoleCorrect = Role.Dean
-        else{
-            return NextResponse.json({
-                success: false,
-                message: "Given Role is not appropriate"
-            },{status: 400})
-        }
-
         const registeredUser = await prisma.verifier.create({
             data: {
                 userName: memberName,
                 email,
                 mobileNo,
-                role: isRoleCorrect,
+                role: role as Role,
                 department
             }
         })
-
 
         return NextResponse.json({
             success: true,

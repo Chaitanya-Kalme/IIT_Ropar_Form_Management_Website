@@ -22,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Toaster
             position="top-right"
             richColors
+            closeButton={true}
             toastOptions={{
               style: {
                 fontFamily: 'Inter, sans-serif',

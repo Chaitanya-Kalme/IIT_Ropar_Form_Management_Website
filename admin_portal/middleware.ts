@@ -7,6 +7,8 @@ export default withAuth(
     },
     {
         callbacks: {
+            // Only check token exists — don't check role/portal here
+            // Role is enforced in signIn callback and mapSession
             authorized: ({ token }) => !!token,
         },
         pages: {

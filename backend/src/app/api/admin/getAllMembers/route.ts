@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
+import { authOptions } from "../../auth/[...nextauth]/options";
 
 
 
 export async function GET(req: NextRequest){
     try {
         // Check that the admin is logged in or not.
-        const session = await getServerSession()
+        const session = await getServerSession(authOptions)
 
         if(!session || session.user?.role!=="Admin"){
             return NextResponse.json({
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest){
             },{status: 400})
         }
 
-        const allVerifiersList = await prisma.verifier.findMany({})
+        const allVerifiersList = await prisma.verifier.findMany()
 
         return NextResponse.json({
             success: true,

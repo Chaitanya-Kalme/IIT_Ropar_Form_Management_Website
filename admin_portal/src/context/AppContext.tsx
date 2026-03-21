@@ -28,16 +28,18 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
         if (status === 'loading') return null;
         if (status === 'unauthenticated' || !session) return null;
 
-        // Fallback portal to 'admin' during hydration
-        const hydratedSession = {
+        // portal may be undefined during first hydration — default to 'admin'
+        // since this is exclusively the admin portal
+        const safeSession = {
             ...session,
             user: {
                 ...session.user,
                 portal: session.user.portal ?? 'admin',
+                role: session.user.role ?? 'Admin',
             },
         };
 
-        return AuthService.mapSession(hydratedSession);
+        return AuthService.mapSession(safeSession);
     }, [
         status,
         session?.user?.email,

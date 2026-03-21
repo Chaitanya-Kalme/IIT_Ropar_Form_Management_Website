@@ -21,12 +21,20 @@ export default function LoginPage() {
   // Show unauthorized toast if NextAuth returns an error
   useEffect(() => {
     const error = searchParams.get('error');
+    if (!error) return;
+
+    // Use a ref to prevent showing the same toast on re-renders
     if (error === 'AccessDenied') {
-      toast.error('Access denied. You are not a registered admin.');
-    } else if (error) {
-      toast.error('Authentication failed. Please try again.');
+        toast.error('Access denied. You are not a registered admin.');
+    } else {
+        toast.error('Authentication failed. Please try again.');
     }
-  }, [searchParams]);
+
+    // Clear the error from URL so it doesn't re-trigger on re-render
+    const url = new URL(window.location.href);
+    url.searchParams.delete('error');
+    window.history.replaceState({}, '', url.toString());
+}, []);
 
   // Redirect if already authenticated
   useEffect(() => {

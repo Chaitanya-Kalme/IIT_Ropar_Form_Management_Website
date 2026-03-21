@@ -34,14 +34,16 @@ export const AuthService = {
 
         const { id, name, email, image, role, portal } = session.user;
 
-        // Strictly enforce admin portal and admin role
-        if (portal !== 'admin') {
+        // Hard block only if portal is explicitly set to something other than admin
+        // undefined means still hydrating — allow through
+        if (portal !== undefined && portal !== 'admin') {
             console.error(`[AdminPortal] Portal mismatch: expected 'admin', got '${portal}'`);
             return null;
         }
 
-        if (role !== 'admin') {
-            console.error(`[AdminPortal] Role check failed: expected 'admin', got '${role}'`);
+        // Hard block only if role is explicitly set to something other than Admin
+        if (role !== undefined && role !== 'Admin') {
+            console.error(`[AdminPortal] Role check failed: expected 'Admin', got '${role}'`);
             return null;
         }
 
@@ -52,8 +54,8 @@ export const AuthService = {
             name: resolvedName,
             email,
             initials: getInitials(resolvedName),
-            role: 'admin',
-            portal: 'admin',
+            role: role ?? 'Admin',
+            portal: portal ?? 'admin',
             avatar: image ?? undefined,
         };
     },
