@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useContext, useState, type ReactNode } from "react";
 
 interface AuthContextType {
@@ -10,16 +12,23 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return sessionStorage.getItem("auth") === "true";
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("auth") === "true";
+    }
+    return false;
   });
+
   const [user, setUser] = useState<{ name: string; email: string } | null>(() => {
-    const stored = sessionStorage.getItem("user");
-    return stored ? JSON.parse(stored) : null;
+    if (typeof window !== "undefined") {
+      const stored = sessionStorage.getItem("user");
+      return stored ? JSON.parse(stored) : null;
+    }
+    return null;
   });
 
   const login = async (email: string, _password: string) => {
-    // In production, this would call the real API
+    // In production, call real API
     setIsAuthenticated(true);
     const u = { name: "Dr. Rajesh Kumar", email };
     setUser(u);

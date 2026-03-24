@@ -1,4 +1,7 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 import { Menu, X, User, LogOut, Home, FileText, Clock } from "lucide-react";
@@ -11,7 +14,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import logo from "@/assets/iit-ropar-logo.png";
 
 const navItems = [
   { label: "Home", path: "/dashboard", icon: Home },
@@ -21,36 +23,35 @@ const navItems = [
 
 export default function Navbar() {
   const { user, logout } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
+  const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    router.push("/login");
   };
 
   return (
     <header className="sticky top-0 z-50 gradient-navbar" style={{ boxShadow: "var(--shadow-navbar)" }}>
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         {/* Left: Logo */}
-        <Link to="/dashboard" className="flex items-center gap-3">
+        <Link href="/dashboard" className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 p-1">
-            <img src={logo} alt="IIT Ropar" className="h-8 w-8 object-contain" />
+            {/* Using text fallback since logo is a local asset */}
+            <span className="text-white font-bold text-sm">IIT</span>
           </div>
-          <span className="hidden font-heading text-lg font-bold text-white sm:block">
-            Forms Portal
-          </span>
+          <span className="hidden font-heading text-lg font-bold text-white sm:block">Forms Portal</span>
         </Link>
 
         {/* Center: Nav links (desktop) */}
         <nav className="hidden items-center gap-1 md:flex">
           {navItems.map((item) => {
-            const active = location.pathname === item.path;
+            const active = pathname === item.path;
             return (
               <Link
                 key={item.path}
-                to={item.path}
+                href={item.path}
                 className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${
                   active ? "nav-link-active" : "nav-link-inactive"
                 }`}
@@ -62,7 +63,7 @@ export default function Navbar() {
           })}
         </nav>
 
-        {/* Right: Profile */}
+        {/* Right: Profile dropdown */}
         <div className="flex items-center gap-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -80,7 +81,7 @@ export default function Navbar() {
                 <p className="text-xs text-muted-foreground">{user?.email}</p>
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate("/profile")}>
+              <DropdownMenuItem onClick={() => router.push("/profile")}>
                 <User className="mr-2 h-4 w-4" />
                 My Profile
               </DropdownMenuItem>
@@ -108,11 +109,11 @@ export default function Navbar() {
       {mobileOpen && (
         <nav className="gradient-navbar border-t border-white/10 px-4 pb-4 pt-2 md:hidden">
           {navItems.map((item) => {
-            const active = location.pathname === item.path;
+            const active = pathname === item.path;
             return (
               <Link
                 key={item.path}
-                to={item.path}
+                href={item.path}
                 onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all ${
                   active ? "nav-link-active" : "nav-link-inactive"

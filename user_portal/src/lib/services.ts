@@ -1,65 +1,71 @@
-import api from "./api";
 import { mockApi, type FormDefinition, type Submission, type UserProfile, type Comment } from "./mockApi";
 
 // Set to true to use mock data, false when backend is ready
 const USE_MOCK = true;
 
+const apiGet = async (path: string) => {
+  const res = await fetch(`/api${path}`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+};
+
+const apiPost = async (path: string, body: unknown) => {
+  const res = await fetch(`/api${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+};
+
 export const formsService = {
   getRecent: async (): Promise<Submission[]> => {
     if (USE_MOCK) return mockApi.getRecentSubmissions();
-    const { data } = await api.get("/forms/recent");
-    return data;
+    return apiGet("/forms/recent");
   },
 
   getAll: async (): Promise<FormDefinition[]> => {
     if (USE_MOCK) return mockApi.getForms();
-    const { data } = await api.get("/forms");
-    return data;
+    return apiGet("/forms");
   },
 
   getById: async (formId: string): Promise<FormDefinition | undefined> => {
     if (USE_MOCK) return mockApi.getFormById(formId);
-    const { data } = await api.get(`/forms/${formId}`);
-    return data;
+    return apiGet(`/forms/${formId}`);
   },
 
   submit: async (payload: Record<string, unknown>) => {
     if (USE_MOCK) return mockApi.submitForm(payload);
-    const { data } = await api.post("/forms/submit", payload);
-    return data;
+    return apiPost("/forms/submit", payload);
   },
 
   getStatus: async (submissionId: string) => {
     if (USE_MOCK) return mockApi.getSubmissionStatus(submissionId);
-    const { data } = await api.get(`/forms/${submissionId}/status`);
-    return data;
+    return apiGet(`/forms/${submissionId}/status`);
   },
 
   getComments: async (submissionId: string): Promise<Comment[]> => {
     if (USE_MOCK) return mockApi.getComments(submissionId);
-    const { data } = await api.get(`/forms/${submissionId}/comments`);
-    return data;
+    return apiGet(`/forms/${submissionId}/comments`);
   },
 };
 
 export const historyService = {
   getAll: async (): Promise<Submission[]> => {
     if (USE_MOCK) return mockApi.getHistory();
-    const { data } = await api.get("/history");
-    return data;
+    return apiGet("/history");
   },
 };
 
 export const userService = {
   login: async (email: string, password: string) => {
     if (USE_MOCK) return mockApi.login(email, password);
-    const { data } = await api.post("/auth/login", { email, password });
-    return data;
+    return apiPost("/auth/login", { email, password });
   },
 
   getProfile: async (): Promise<UserProfile> => {
     if (USE_MOCK) return mockApi.getProfile();
-    const { data } = await api.get("/user/profile");
-    return data;
+    return apiGet("/user/profile");
   },
 };
