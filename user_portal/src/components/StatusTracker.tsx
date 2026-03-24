@@ -35,18 +35,31 @@ export default function StatusTracker({ steps }: Props) {
             )}
           </div>
           <div className="pb-6">
-            <p className={`text-sm font-semibold ${
-              step.status === "completed" ? "text-emerald-700" :
-              step.status === "pending" ? "text-amber-700" : "text-muted-foreground"
-            }`}>
+            <p
+              className={`text-sm font-semibold ${
+                step.status === "completed"
+                  ? "text-emerald-700"
+                  : step.status === "pending"
+                  ? "text-amber-700"
+                  : "text-muted-foreground"
+              }`}
+            >
               {step.authority}
             </p>
-            <p className={`text-xs font-medium ${
-              step.status === "completed" ? "text-emerald-500" :
-              step.status === "pending" ? "text-amber-500" : "text-muted-foreground/60"
-            }`}>
-              {step.status === "completed" ? "✔ Completed" :
-               step.status === "pending" ? "⏳ Pending Review" : "Awaiting"}
+            <p
+              className={`text-xs font-medium ${
+                step.status === "completed"
+                  ? "text-emerald-500"
+                  : step.status === "pending"
+                  ? "text-amber-500"
+                  : "text-muted-foreground/60"
+              }`}
+            >
+              {step.status === "completed"
+                ? "✔ Completed"
+                : step.status === "pending"
+                ? "⏳ Pending Review"
+                : "Awaiting"}
             </p>
           </div>
         </div>

@@ -1,5 +1,4 @@
-// Mock API service - simulates backend responses
-// Replace these with real API calls when backend is ready
+// Mock API service — replace with real API calls when backend is ready
 
 export interface FormField {
   id: string;
@@ -85,17 +84,8 @@ const mockForms: FormDefinition[] = [
       { id: "amount_claimed", label: "Details of the amount claimed", type: "number", required: true },
       { id: "contact_no", label: "Contact No. of Employee", type: "text", required: true },
       { id: "bank_details", label: "Bank Details (Account No. & IFSC Code)", type: "text", required: true },
-      { id: "consultation_fee", label: "Fee for consultation (name & designation of Medical Officer)", type: "textarea", required: false },
-      { id: "consultation_dates", label: "Number and dates of consultation and fee paid", type: "textarea", required: false },
-      { id: "injection_details", label: "Number & dates of injection & fee paid for each", type: "textarea", required: false },
-      { id: "test_charges", label: "Charges for pathological / radiological tests", type: "textarea", required: false },
-      { id: "medicine_cost", label: "Cost of medicines purchased from market", type: "number", required: false },
-      { id: "specialist_name", label: "Name & designation of Specialist consulted", type: "text", required: false },
-      { id: "specialist_fees", label: "Number & dates of consultations and fees paid", type: "textarea", required: false },
       { id: "total_amount", label: "Total Amount Claimed (Rs.)", type: "number", required: true },
-      { id: "advance_taken", label: "Less Advance Taken (Rs.)", type: "number", required: false },
       { id: "net_amount", label: "Net Amount Claimed (Rs.)", type: "number", required: true },
-      { id: "enclosures", label: "List of Enclosures", type: "textarea", required: false },
     ],
     required_documents: ["Medical Bills (Original)", "Prescription Copy", "Discharge Summary (if applicable)"],
     signature_required: true,
@@ -227,10 +217,7 @@ const mockForms: FormDefinition[] = [
       { id: "to_date", label: "Travel To Date", type: "date", required: true },
       { id: "mode", label: "Mode of Travel", type: "dropdown", required: true, options: ["Air", "Train", "Bus", "Own Vehicle"] },
       { id: "fare", label: "Travel Fare (Rs.)", type: "number", required: true },
-      { id: "da", label: "Daily Allowance (Rs.)", type: "number", required: false },
-      { id: "hotel", label: "Hotel Charges (Rs.)", type: "number", required: false },
       { id: "total", label: "Total Amount Claimed (Rs.)", type: "number", required: true },
-      { id: "advance", label: "Advance Taken (Rs.)", type: "number", required: false },
       { id: "net_claim", label: "Net Amount Claimed (Rs.)", type: "number", required: true },
       { id: "bank_details", label: "Bank Account & IFSC", type: "text", required: true },
     ],
@@ -324,7 +311,6 @@ const mockComments: Comment[] = [
   },
 ];
 
-// Mock API functions
 export const mockApi = {
   login: async (_email: string, _password: string) => {
     await delay(800);
