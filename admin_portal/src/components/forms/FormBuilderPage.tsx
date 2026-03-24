@@ -1,104 +1,124 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   GripVertical, Trash2, Plus, X, ChevronUp, ChevronDown,
   FileText, Hash, Phone, Mail, MapPin, Building, BookOpen, Calendar,
   Upload, CheckSquare, Circle, List, Type, AlignLeft, Settings,
-  Eye, Zap, Info, ArrowLeft,
+  Eye, Zap, Info, ArrowLeft, Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  FormFieldType,
-  MockForm,
-  MockFormField,
-  getFormById,
-} from '@/data/mockData';
+import axios from 'axios';
 import styles from '@/styles/CreateFormPage.module.css';
 
-interface VerifierLevel {
-  id: string;
-  role: string;
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type FormFieldType =
+  | 'text' | 'number' | 'date' | 'file' | 'checkbox'
+  | 'radio' | 'select' | 'textarea' | 'email' | 'tel';
+
+interface FormField {
+  id:          string;
+  label:       string;
+  type:        FormFieldType;
+  required:    boolean;
+  placeholder?: string;
+  options?:    string[];
+  isCustom?:   boolean;
 }
 
-const QUICK_FIELDS: { label: string; type: FormFieldType; icon: React.ReactNode; placeholder?: string }[] = [
-  { label: 'Name', type: 'text', icon: <FileText size={14} />, placeholder: 'Enter full name' },
-  { label: 'Age', type: 'number', icon: <Hash size={14} />, placeholder: 'Enter age' },
-  { label: 'Mobile', type: 'tel', icon: <Phone size={14} />, placeholder: 'Enter mobile number' },
-  { label: 'Email', type: 'email', icon: <Mail size={14} />, placeholder: 'Enter email address' },
-  { label: 'Address', type: 'textarea', icon: <MapPin size={14} />, placeholder: 'Enter full address' },
-  { label: 'Department', type: 'text', icon: <Building size={14} />, placeholder: 'Enter department' },
-  { label: 'Roll Number', type: 'text', icon: <BookOpen size={14} />, placeholder: 'Enter roll number' },
-];
+interface VerifierLevel {
+  id:         string;      // local UI id only
+  verifierId: string;      // real DB Verifier.id (uuid)
+  name:       string;      // display name
+  role:       string;      // display role
+}
 
-const VERIFIER_ROLES = ['Caretaker', 'HOD', 'Dean', 'Faculty', 'Admin'];
+interface ApiVerifier {
+  id:         string;
+  userName:   string;
+  email:      string;
+  role:       string;
+  department: string;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const QUICK_FIELDS: {
+  label: string; type: FormFieldType; icon: React.ReactNode; placeholder?: string;
+}[] = [
+  { label: 'Name',        type: 'text',     icon: <FileText size={14} />, placeholder: 'Enter full name'      },
+  { label: 'Age',         type: 'number',   icon: <Hash size={14} />,     placeholder: 'Enter age'            },
+  { label: 'Mobile',      type: 'tel',      icon: <Phone size={14} />,    placeholder: 'Enter mobile number'  },
+  { label: 'Email',       type: 'email',    icon: <Mail size={14} />,     placeholder: 'Enter email address'  },
+  { label: 'Address',     type: 'textarea', icon: <MapPin size={14} />,   placeholder: 'Enter full address'   },
+  { label: 'Department',  type: 'text',     icon: <Building size={14} />, placeholder: 'Enter department'     },
+  { label: 'Roll Number', type: 'text',     icon: <BookOpen size={14} />, placeholder: 'Enter roll number'    },
+];
 
 const fieldTypeOptions: { value: FormFieldType; label: string; icon: React.ReactNode }[] = [
-  { value: 'text', label: 'Text', icon: <Type size={14} /> },
-  { value: 'number', label: 'Number', icon: <Hash size={14} /> },
-  { value: 'date', label: 'Date', icon: <Calendar size={14} /> },
-  { value: 'file', label: 'File Upload', icon: <Upload size={14} /> },
-  { value: 'checkbox', label: 'Checkbox', icon: <CheckSquare size={14} /> },
-  { value: 'radio', label: 'Radio', icon: <Circle size={14} /> },
-  { value: 'select', label: 'Select / Dropdown', icon: <List size={14} /> },
-  { value: 'textarea', label: 'Textarea', icon: <AlignLeft size={14} /> },
-  { value: 'email', label: 'Email', icon: <Mail size={14} /> },
-  { value: 'tel', label: 'Phone', icon: <Phone size={14} /> },
+  { value: 'text',     label: 'Text',              icon: <Type size={14} />        },
+  { value: 'number',   label: 'Number',            icon: <Hash size={14} />        },
+  { value: 'date',     label: 'Date',              icon: <Calendar size={14} />    },
+  { value: 'file',     label: 'File Upload',       icon: <Upload size={14} />      },
+  { value: 'checkbox', label: 'Checkbox',          icon: <CheckSquare size={14} /> },
+  { value: 'radio',    label: 'Radio',             icon: <Circle size={14} />      },
+  { value: 'select',   label: 'Select / Dropdown', icon: <List size={14} />        },
+  { value: 'textarea', label: 'Textarea',          icon: <AlignLeft size={14} />   },
+  { value: 'email',    label: 'Email',             icon: <Mail size={14} />        },
+  { value: 'tel',      label: 'Phone',             icon: <Phone size={14} />       },
 ];
+
+const fieldIcons: Record<FormFieldType, React.ReactNode> = {
+  text:     <Type size={12} />,
+  number:   <Hash size={12} />,
+  date:     <Calendar size={12} />,
+  file:     <Upload size={12} />,
+  checkbox: <CheckSquare size={12} />,
+  radio:    <Circle size={12} />,
+  select:   <List size={12} />,
+  textarea: <AlignLeft size={12} />,
+  email:    <Mail size={12} />,
+  tel:      <Phone size={12} />,
+};
 
 function generateId() {
   return Math.random().toString(36).substring(2, 9);
 }
 
-function buildFormState(form?: MockForm) {
-  return {
-    formTitle: form?.name ?? '',
-    formDescription: form?.description ?? '',
-    deadline: form?.deadline ?? '',
-    isActive: form?.status === 'Active' || !form,
-    fields: form?.fields ?? [],
-    verifiers: (form?.verificationFlow ?? []).map((role) => ({ id: generateId(), role })),
-  };
-}
+// ─── CustomFieldForm ──────────────────────────────────────────────────────────
 
 interface CustomFieldFormProps {
-  onAdd: (field: MockFormField) => void;
+  onAdd:    (field: FormField) => void;
   onCancel: () => void;
 }
 
 function CustomFieldForm({ onAdd, onCancel }: CustomFieldFormProps) {
-  const [label, setLabel] = useState('');
-  const [type, setType] = useState<FormFieldType>('text');
-  const [options, setOptions] = useState<string[]>([]);
+  const [label,     setLabel]     = useState('');
+  const [type,      setType]      = useState<FormFieldType>('text');
+  const [options,   setOptions]   = useState<string[]>([]);
   const [newOption, setNewOption] = useState('');
-  const [required, setRequired] = useState(false);
+  const [required,  setRequired]  = useState(false);
 
   const needsOptions = ['checkbox', 'radio', 'select'].includes(type);
 
   const addOption = () => {
     if (newOption.trim()) {
-      setOptions((current) => [...current, newOption.trim()]);
+      setOptions((prev) => [...prev, newOption.trim()]);
       setNewOption('');
     }
   };
 
   const handleAdd = () => {
-    if (!label.trim()) {
-      toast.error('Field label is required');
-      return;
-    }
-    if (needsOptions && options.length === 0) {
-      toast.error('Please add at least one option');
-      return;
-    }
-
+    if (!label.trim()) { toast.error('Field label is required'); return; }
+    if (needsOptions && options.length === 0) { toast.error('Please add at least one option'); return; }
     onAdd({
-      id: generateId(),
-      label: label.trim(),
+      id:       generateId(),
+      label:    label.trim(),
       type,
       required,
-      options: needsOptions ? options : undefined,
+      options:  needsOptions ? options : undefined,
       isCustom: true,
     });
   };
@@ -111,13 +131,7 @@ function CustomFieldForm({ onAdd, onCancel }: CustomFieldFormProps) {
 
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Field Label</label>
-        <input
-          type="text"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="e.g., Passport No., CGPA..."
-          className={styles.input}
-        />
+        <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g., Passport No., CGPA..." className={styles.input} />
       </div>
 
       <div>
@@ -148,19 +162,15 @@ function CustomFieldForm({ onAdd, onCancel }: CustomFieldFormProps) {
               placeholder="Type option name..."
               className={styles.input}
             />
-            <button
-              type="button"
-              onClick={addOption}
-              className="w-8 h-8 bg-[#1E3A8A] text-white rounded-lg flex items-center justify-center hover:bg-[#1e3a8a]/90 flex-shrink-0"
-            >
+            <button type="button" onClick={addOption} className="w-8 h-8 bg-[#1E3A8A] text-white rounded-lg flex items-center justify-center hover:bg-[#1e3a8a]/90 flex-shrink-0">
               <Plus size={14} />
             </button>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {options.map((option, index) => (
-              <span key={index} className="flex items-center gap-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-xs px-2 py-1 rounded-full text-gray-700 dark:text-gray-300">
-                {option}
-                <button type="button" onClick={() => setOptions(options.filter((_, idx) => idx !== index))} className="text-gray-400 hover:text-red-500">
+            {options.map((opt, i) => (
+              <span key={i} className="flex items-center gap-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-xs px-2 py-1 rounded-full text-gray-700 dark:text-gray-300">
+                {opt}
+                <button type="button" onClick={() => setOptions(options.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500">
                   <X size={10} />
                 </button>
               </span>
@@ -175,18 +185,10 @@ function CustomFieldForm({ onAdd, onCancel }: CustomFieldFormProps) {
       </div>
 
       <div className="flex gap-2 pt-1">
-        <button
-          type="button"
-          onClick={handleAdd}
-          className="flex-1 py-2 bg-[#1E3A8A] text-white text-xs font-semibold rounded-lg hover:bg-[#1e3a8a]/90 transition-colors cursor-pointer"
-        >
+        <button type="button" onClick={handleAdd} className="flex-1 py-2 bg-[#1E3A8A] text-white text-xs font-semibold rounded-lg hover:bg-[#1e3a8a]/90 transition-colors cursor-pointer">
           Add to Form
         </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-3 py-2 text-xs text-gray-500 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-        >
+        <button type="button" onClick={onCancel} className="px-3 py-2 text-xs text-gray-500 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
           Cancel
         </button>
       </div>
@@ -194,159 +196,174 @@ function CustomFieldForm({ onAdd, onCancel }: CustomFieldFormProps) {
   );
 }
 
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 interface FormBuilderPageProps {
-  mode: 'create' | 'edit';
+  mode:    'create' | 'edit';
   formId?: string;
 }
 
 export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
   const router = useRouter();
-  const editingForm = formId ? getFormById(formId) : undefined;
-  const initialState = buildFormState(editingForm);
 
-  const [fields, setFields] = useState<MockFormField[]>(initialState.fields);
-  const [showCustomForm, setShowCustomForm] = useState(false);
-  const [formTitle, setFormTitle] = useState(initialState.formTitle);
-  const [formDescription, setFormDescription] = useState(initialState.formDescription);
-  const [deadline, setDeadline] = useState(initialState.deadline);
-  const [isActive, setIsActive] = useState(initialState.isActive);
-  const [verifiers, setVerifiers] = useState<VerifierLevel[]>(initialState.verifiers);
-  const [customVerifierInput, setCustomVerifierInput] = useState('');
-  const [saving, setSaving] = useState(false);
+  // ── Form state ─────────────────────────────────────────────────────
+  const [formTitle,       setFormTitle]       = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [deadline,        setDeadline]        = useState('');
+  const [isActive,        setIsActive]        = useState(true);
+  const [fields,          setFields]          = useState<FormField[]>([]);
+  const [verifiers,       setVerifiers]       = useState<VerifierLevel[]>([]);
+  const [showCustomForm,  setShowCustomForm]  = useState(false);
+  const [saving,          setSaving]          = useState(false);
+
+  // ── Available verifiers from DB ────────────────────────────────────
+  const [availableVerifiers,        setAvailableVerifiers]        = useState<ApiVerifier[]>([]);
+  const [verifiersLoading,          setVerifiersLoading]          = useState(true);
+  const [verifiersError,            setVerifiersError]            = useState<string | null>(null);
+  const [verifierSearch,            setVerifierSearch]            = useState('');
+  const [showVerifierDropdown,      setShowVerifierDropdown]      = useState(false);
+
+  // ── Fetch verifiers from DB ────────────────────────────────────────
+  const fetchVerifiers = useCallback(async () => {
+    setVerifiersLoading(true);
+    setVerifiersError(null);
+    try {
+      const { data } = await axios.get('/api/admin/getAllMembers');
+      setAvailableVerifiers(data.data ?? []);
+    } catch (err) {
+      const msg = axios.isAxiosError(err)
+        ? err.response?.data?.message ?? err.message
+        : 'Failed to load verifiers';
+      setVerifiersError(msg);
+      toast.error(msg);
+    } finally {
+      setVerifiersLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const nextState = buildFormState(editingForm);
-    setFields(nextState.fields);
-    setFormTitle(nextState.formTitle);
-    setFormDescription(nextState.formDescription);
-    setDeadline(nextState.deadline);
-    setIsActive(nextState.isActive);
-    setVerifiers(nextState.verifiers);
-  }, [editingForm]);
+    fetchVerifiers();
+  }, [fetchVerifiers]);
 
-  const addedLabels = new Set(fields.map((field) => field.label));
+  // ── Quick fields ───────────────────────────────────────────────────
+  const addedLabels = new Set(fields.map((f) => f.label));
 
-  const pageTitle = mode === 'edit' ? `Edit ${editingForm?.name ?? 'Form'}` : 'Create Form';
-  const pageSubtitle =
-    mode === 'edit'
-      ? 'Update the dummy form configuration, fields, and verification flow.'
-      : 'Build a new form with custom fields and verification flow.';
-
-  const addQuickField = (quickField: typeof QUICK_FIELDS[number]) => {
-    if (addedLabels.has(quickField.label)) return;
-    setFields((current) => [
-      ...current,
-      {
-        id: generateId(),
-        label: quickField.label,
-        type: quickField.type,
-        required: true,
-        placeholder: quickField.placeholder,
-      },
-    ]);
+  const addQuickField = (qf: typeof QUICK_FIELDS[number]) => {
+    if (addedLabels.has(qf.label)) return;
+    setFields((prev) => [...prev, { id: generateId(), label: qf.label, type: qf.type, required: true, placeholder: qf.placeholder }]);
   };
 
-  const removeField = (id: string) => {
-    setFields((current) => current.filter((field) => field.id !== id));
-  };
+  const removeField = (id: string) =>
+    setFields((prev) => prev.filter((f) => f.id !== id));
 
   const moveField = (index: number, direction: 'up' | 'down') => {
-    const next = [...fields];
+    const next   = [...fields];
     const target = direction === 'up' ? index - 1 : index + 1;
     if (target < 0 || target >= next.length) return;
     [next[index], next[target]] = [next[target], next[index]];
     setFields(next);
   };
 
-  const addVerifier = (role: string) => {
-    if (verifiers.some((verifier) => verifier.role === role)) {
-      toast.error(`${role} already added as a verifier`);
-      return;
-    }
-    setVerifiers((current) => [...current, { id: generateId(), role }]);
+  // ── Verifier management ────────────────────────────────────────────
+  const addedVerifierIds = new Set(verifiers.map((v) => v.verifierId));
+
+  const filteredVerifierOptions = availableVerifiers.filter(
+    (v) =>
+      !addedVerifierIds.has(v.id) &&
+      (verifierSearch === '' ||
+        v.userName.toLowerCase().includes(verifierSearch.toLowerCase()) ||
+        v.role.toLowerCase().includes(verifierSearch.toLowerCase()) ||
+        v.department.toLowerCase().includes(verifierSearch.toLowerCase()))
+  );
+
+  const addVerifier = (v: ApiVerifier) => {
+    setVerifiers((prev) => [...prev, { id: generateId(), verifierId: v.id, name: v.userName, role: v.role }]);
+    setVerifierSearch('');
+    setShowVerifierDropdown(false);
   };
 
-  const addCustomVerifier = () => {
-    const value = customVerifierInput.trim();
-    if (!value) {
-      toast.error('Please enter a verifier name');
-      return;
-    }
-    if (verifiers.some((verifier) => verifier.role.toLowerCase() === value.toLowerCase())) {
-      toast.error(`${value} already added as a verifier`);
-      return;
-    }
-    setVerifiers((current) => [...current, { id: generateId(), role: value }]);
-    setCustomVerifierInput('');
-    toast.success(`${value} added as verifier`);
-  };
+  const removeVerifier = (id: string) =>
+    setVerifiers((prev) => prev.filter((v) => v.id !== id));
 
-  const removeVerifier = (id: string) => {
-    setVerifiers((current) => current.filter((verifier) => verifier.id !== id));
-  };
-
+  // ── Submit ─────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!formTitle.trim()) {
-      toast.error('Form title is required');
-      return;
-    }
-    if (fields.length === 0) {
-      toast.error('Please add at least one field');
-      return;
-    }
-    if (verifiers.length === 0) {
-      toast.error('Please add at least one verifier');
-      return;
-    }
+    // Validate
+    if (!formTitle.trim())  { toast.error('Form title is required');           return; }
+    if (!deadline)          { toast.error('Deadline is required');             return; }
+    if (fields.length === 0)    { toast.error('Please add at least one field');    return; }
+    if (verifiers.length === 0) { toast.error('Please add at least one verifier'); return; }
 
-    setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    setSaving(false);
+    // Shape fields for API — strip UI-only id & isCustom
+    const apiFields = fields.map(({ label, type, required, placeholder, options }) => ({
+      label,
+      type,
+      required,
+      ...(placeholder && { placeholder }),
+      ...(options     && { options }),
+    }));
 
-    if (mode === 'edit' && editingForm) {
-      toast.success(`${editingForm.name} updated in frontend demo state`);
-      router.push(`/forms/available/${editingForm.id}`);
-      return;
-    }
+    // Shape verifiers — level = position + 1
+    const apiVerifiers = verifiers.map((v, i) => ({
+      verifierId: v.verifierId,
+      level:      i + 1,
+    }));
 
-    toast.success('Form published successfully');
-    setFields([]);
-    setFormTitle('');
-    setFormDescription('');
-    setDeadline('');
-    setVerifiers([]);
-  };
-
-  const getFieldIcon = (type: FormFieldType) => {
-    const icons: Record<FormFieldType, React.ReactNode> = {
-      text: <Type size={12} />,
-      number: <Hash size={12} />,
-      date: <Calendar size={12} />,
-      file: <Upload size={12} />,
-      checkbox: <CheckSquare size={12} />,
-      radio: <Circle size={12} />,
-      select: <List size={12} />,
-      textarea: <AlignLeft size={12} />,
-      email: <Mail size={12} />,
-      tel: <Phone size={12} />,
+    const payload = {
+      title:       formTitle.trim(),
+      description: formDescription.trim(),
+      deadline,
+      formStatus:  isActive,
+      fields:      apiFields,
+      verifiers:   apiVerifiers,
     };
 
-    return icons[type];
+    setSaving(true);
+    try {
+      if (mode === 'create') {
+        await axios.post('/api/forms', payload);
+        toast.success('Form published successfully');
+        // Reset
+        setFormTitle('');
+        setFormDescription('');
+        setDeadline('');
+        setIsActive(true);
+        setFields([]);
+        setVerifiers([]);
+        router.push('/forms');
+      } else {
+        await axios.patch(`/api/forms/${formId}`, payload);
+        toast.success('Form updated successfully');
+        router.push(`/forms/available/${formId}`);
+      }
+    } catch (err) {
+      const msg = axios.isAxiosError(err)
+        ? err.response?.data?.message ?? err.message
+        : 'Something went wrong';
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const availableVerifiers = VERIFIER_ROLES.filter((role) => !verifiers.some((verifier) => verifier.role === role));
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  const pageTitle    = mode === 'edit' ? 'Edit Form'    : 'Create Form';
+  const pageSubtitle = mode === 'edit'
+    ? 'Update the form configuration, fields, and verification flow.'
+    : 'Build a new form with custom fields and a verification flow.';
 
   return (
     <div className={`space-y-6 ${styles.page}`} style={{ fontFamily: 'Inter, sans-serif' }}>
+
+      {/* ── Page header ── */}
       <div className={styles.pageHeader}>
-        {mode === 'edit' && editingForm && (
+        {mode === 'edit' && (
           <button
             type="button"
-            onClick={() => router.push(`/forms/available/${editingForm.id}`)}
+            onClick={() => router.push(`/forms/available/${formId}`)}
             className="mb-4 inline-flex items-center gap-2 text-sm text-[#1E3A8A] dark:text-blue-400 font-medium"
           >
-            <ArrowLeft size={16} />
-            Back to form dashboard
+            <ArrowLeft size={16} /> Back to form dashboard
           </button>
         )}
         <h1 className="text-gray-900 dark:text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>{pageTitle}</h1>
@@ -355,33 +372,36 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-6 space-y-6">
+
+          {/* ── Quick add fields ── */}
           <div className={styles.card}>
             <h3 className={styles.sectionTitle}>Quick Add Fields</h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-4 mb-5">Click to add common fields</p>
             <div className="flex flex-wrap gap-3">
-              {QUICK_FIELDS.map((quickField) => {
-                const added = addedLabels.has(quickField.label);
+              {QUICK_FIELDS.map((qf) => {
+                const added = addedLabels.has(qf.label);
                 return (
                   <button
-                    key={quickField.label}
+                    key={qf.label}
                     type="button"
-                    onClick={() => addQuickField(quickField)}
+                    onClick={() => addQuickField(qf)}
                     disabled={added}
                     className={`${styles.quickChip} ${added ? styles.quickChipAdded : ''}`}
                   >
-                    {quickField.icon} {quickField.label}
+                    {qf.icon} {qf.label}
                   </button>
                 );
               })}
             </div>
           </div>
 
+          {/* ── Custom field ── */}
           <div className={styles.card}>
             <h3 className={`${styles.sectionTitle} mb-5`}>Custom Field</h3>
             {showCustomForm ? (
               <CustomFieldForm
                 onAdd={(field) => {
-                  setFields((current) => [...current, field]);
+                  setFields((prev) => [...prev, field]);
                   setShowCustomForm(false);
                   toast.success(`"${field.label}" field added`);
                 }}
@@ -394,6 +414,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
             )}
           </div>
 
+          {/* ── Form settings ── */}
           <div className={styles.card}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg">
@@ -404,21 +425,44 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Form Title *</label>
-                <input type="text" value={formTitle} onChange={(e) => setFormTitle(e.target.value)} placeholder="e.g., Hostel Leave Application" className={styles.input} />
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                  Form Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="e.g., Hostel Leave Application"
+                  className={styles.input}
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Description</label>
-                <textarea value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="Brief description of the form..." className={styles.input} />
+                <textarea
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  placeholder="Brief description of the form..."
+                  className={styles.input}
+                />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Deadline</label>
-                <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={styles.input} />
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                  Deadline <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={deadline}
+                  onChange={(e) => setDeadline(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className={styles.input}
+                />
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Form Status</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{isActive ? 'Active - accepting submissions' : 'Draft - not visible to users'}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {isActive ? 'Active — accepting submissions' : 'Draft — not visible to users'}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -431,6 +475,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
             </div>
           </div>
 
+          {/* ── Verification flow ── */}
           <div className={styles.card}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 rounded-lg">
@@ -439,75 +484,110 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
               <h3 className={styles.sectionTitle}>Verification Flow</h3>
             </div>
 
+            {/* Current verifier chain */}
             {verifiers.length > 0 && (
-              <div className="mb-4">
-                <div className="relative">
-                  {verifiers.map((verifier, index) => (
-                    <div key={verifier.id} className="flex items-center gap-3 mb-3 last:mb-0">
-                      <div className="flex flex-col items-center">
-                        <div className={styles.levelCircle}>{index + 1}</div>
-                        {index < verifiers.length - 1 && <div className="w-0.5 h-6 bg-blue-200 dark:bg-blue-700 mt-1" />}
-                      </div>
-                      <div className={styles.verifierCard}>
-                        <div>
-                          <p className="text-xs font-semibold text-[#1E3A8A] dark:text-blue-300">Level {index + 1}</p>
-                          <p className="text-sm font-medium text-gray-800 dark:text-white">{verifier.role}</p>
-                        </div>
-                        <button type="button" onClick={() => removeVerifier(verifier.id)} className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer">
-                          <X size={14} />
-                        </button>
-                      </div>
+              <div className="mb-4 space-y-0">
+                {verifiers.map((v, i) => (
+                  <div key={v.id} className="flex items-center gap-3 mb-3 last:mb-0">
+                    <div className="flex flex-col items-center">
+                      <div className={styles.levelCircle}>{i + 1}</div>
+                      {i < verifiers.length - 1 && (
+                        <div className="w-0.5 h-6 bg-blue-200 dark:bg-blue-700 mt-1" />
+                      )}
                     </div>
-                  ))}
-                </div>
+                    <div className={styles.verifierCard}>
+                      <div>
+                        <p className="text-xs font-semibold text-[#1E3A8A] dark:text-blue-300">Level {i + 1}</p>
+                        <p className="text-sm font-medium text-gray-800 dark:text-white">{v.name}</p>
+                        <p className="text-xs text-gray-400">{v.role}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeVerifier(v.id)}
+                        className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
-            {availableVerifiers.length > 0 ? (
-              <div className="space-y-3">
-                <p className="text-xs text-gray-500 dark:text-gray-400">{verifiers.length === 0 ? 'Add 1st Level Verifier' : '+ Add Next Level Verifier'}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {availableVerifiers.map((role) => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => addVerifier(role)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full hover:bg-[#1E3A8A] hover:text-white hover:border-[#1E3A8A] cursor-pointer transition-all"
-                    >
-                      <Plus size={11} /> {role}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
-                <Info size={12} /> Default verifier roles have all been added
+            {/* Verifier picker */}
+            <div className="relative">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                {verifiers.length === 0 ? 'Add 1st Level Verifier' : '+ Add Next Level Verifier'}
               </p>
-            )}
 
-            <div className="flex gap-2 mt-3">
-              <input
-                type="text"
-                value={customVerifierInput}
-                onChange={(e) => setCustomVerifierInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addCustomVerifier()}
-                placeholder="Add custom verifier name..."
-                className={styles.input}
-              />
-              <button
-                type="button"
-                onClick={addCustomVerifier}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-[#1E3A8A] hover:bg-[#1E3A8A]/90 rounded-lg transition-all"
-              >
-                <Plus size={12} /> Add
-              </button>
+              {verifiersLoading ? (
+                <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+                  <Loader2 size={13} className="animate-spin" /> Loading verifiers...
+                </div>
+              ) : verifiersError ? (
+                <div className="text-xs text-red-500 flex items-center gap-2">
+                  Failed to load verifiers.
+                  <button onClick={fetchVerifiers} className="underline">Retry</button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={verifierSearch}
+                    onChange={(e) => { setVerifierSearch(e.target.value); setShowVerifierDropdown(true); }}
+                    onFocus={() => setShowVerifierDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowVerifierDropdown(false), 150)}
+                    placeholder="Search verifier by name, role, or department..."
+                    className={styles.input}
+                  />
+
+                  {showVerifierDropdown && (
+                    <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                      {filteredVerifierOptions.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-4">
+                          {availableVerifiers.length === 0
+                            ? 'No verifiers in database'
+                            : 'No matches — all verifiers added or search has no results'}
+                        </p>
+                      ) : (
+                        filteredVerifierOptions.map((v) => (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onMouseDown={() => addVerifier(v)}
+                            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                          >
+                            <div>
+                              <p className="text-sm font-medium text-gray-800 dark:text-white">{v.userName}</p>
+                              <p className="text-xs text-gray-400">{v.role} · {v.department}</p>
+                            </div>
+                            <Plus size={13} className="text-gray-400 flex-shrink-0" />
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {availableVerifiers.length > 0 && addedVerifierIds.size === availableVerifiers.length && (
+                <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 mt-2">
+                  <Info size={12} /> All available verifiers have been added
+                </p>
+              )}
             </div>
           </div>
 
-          <button type="button" onClick={handleSave} disabled={saving} className={styles.publishBtn}>
+          {/* ── Publish button ── */}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className={styles.publishBtn}
+          >
             {saving ? (
               <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <Loader2 size={16} className="animate-spin" />
                 {mode === 'edit' ? 'Saving...' : 'Publishing...'}
               </>
             ) : (
@@ -519,12 +599,15 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
           </button>
         </div>
 
+        {/* ── Form canvas ── */}
         <div className="lg:col-span-6">
           <div className={styles.card}>
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className={styles.sectionTitle}>Form Canvas</h3>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">{fields.length} field{fields.length !== 1 ? 's' : ''} added</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
+                  {fields.length} field{fields.length !== 1 ? 's' : ''} added
+                </p>
               </div>
               {fields.length > 0 && (
                 <div className="flex items-center gap-1.5 text-xs text-gray-400">
@@ -545,6 +628,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
               <div className="space-y-3">
                 {fields.map((field, index) => (
                   <div key={field.id} className={`group ${styles.fieldCard}`}>
+                    {/* Hover controls */}
                     <div className="absolute top-2 right-2 hidden group-hover:flex items-center gap-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-1 shadow-sm">
                       <button type="button" onClick={() => moveField(index, 'up')} disabled={index === 0} className="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-white disabled:opacity-30 transition-colors cursor-pointer">
                         <ChevronUp size={13} />
@@ -565,8 +649,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
                     <div className="ml-4">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <div className={styles.fieldBadge}>
-                          {getFieldIcon(field.type)}
-                          {field.type}
+                          {fieldIcons[field.type]} {field.type}
                         </div>
                         <span className="text-sm font-medium text-gray-800 dark:text-white">{field.label}</span>
                         {field.required && <span className="text-red-500 text-xs">*</span>}
@@ -574,7 +657,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
                       </div>
 
                       {field.type === 'textarea' ? (
-                        <textarea placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`} className={styles.input} readOnly />
+                        <textarea placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}...`} className={styles.input} readOnly />
                       ) : field.type === 'file' ? (
                         <div className="border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg p-3 text-center">
                           <Upload size={16} className="text-gray-400 mx-auto mb-1" />
@@ -583,15 +666,22 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
                         </div>
                       ) : field.options ? (
                         <div className="flex flex-wrap gap-1.5">
-                          {field.options.map((option, optionIndex) => (
-                            <span key={optionIndex} className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
-                              {field.type === 'checkbox' ? <CheckSquare size={11} className="text-gray-400" /> : <Circle size={11} className="text-gray-400" />}
-                              {option}
+                          {field.options.map((opt, i) => (
+                            <span key={i} className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
+                              {field.type === 'checkbox'
+                                ? <CheckSquare size={11} className="text-gray-400" />
+                                : <Circle size={11} className="text-gray-400" />}
+                              {opt}
                             </span>
                           ))}
                         </div>
                       ) : (
-                        <input type={field.type} placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`} className={styles.input} readOnly />
+                        <input
+                          type={field.type}
+                          placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}...`}
+                          className={styles.input}
+                          readOnly
+                        />
                       )}
                     </div>
                   </div>

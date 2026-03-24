@@ -1,16 +1,89 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowUpRight, Building2, Calendar, Edit2, Mail, Phone, Shield, Workflow, BadgeCheck, BriefcaseBusiness } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Building2,
+  Calendar,
+  Edit2,
+  Mail,
+  Phone,
+  Shield,
+  Workflow,
+  BadgeCheck,
+  BriefcaseBusiness,
+} from 'lucide-react';
 import styles from '@/styles/DashboardPage.module.css';
-import { getActivitiesForAdmin, getMemberById, mockSubmissions } from '@/data/mockData';
 
-const roleBadgeColors: Record<string, string> = {
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type Role = 'Admin' | 'HOD' | 'Caretaker' | 'Dean' | 'Faculty';
+
+interface Verifier {
+  id: string;
+  userName: string;
+  email: string;
+  role: Role;
+  department: string;
+  mobileNo: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ApiResponse {
+  success: boolean;
+  message: string;
+  data: Verifier | null;
+}
+
+// ── Role badge CSS module class map ───────────────────────────────────────────
+
+const roleBadgeColors: Record<Role, string> = {
   Caretaker: styles.statusPending,
-  HOD: styles.levelBadge,
-  Dean: styles.statusApproved,
-  Faculty: styles.statusDefault,
-  Admin: styles.statusRejected,
+  HOD:       styles.levelBadge,
+  Dean:      styles.statusApproved,
+  Faculty:   styles.statusDefault,
+  Admin:     styles.statusRejected,
 };
+
+// ── Server-side data fetch ────────────────────────────────────────────────────
+
+async function getVerifier(verifierId: string): Promise<Verifier | null> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
+
+    const res = await fetch(
+      `${baseUrl}/api/admin/getVerifierMemberDetails/${verifierId}`,
+      { cache: 'no-store' }
+    );
+
+    if (!res.ok) return null;
+
+    const json: ApiResponse = await res.json();
+
+    if (!json.success || !json.data) return null;
+
+    return json.data;
+  } catch {
+    return null;
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+const initials = (name: string) =>
+  name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+
+const avatarHue = (name: string) =>
+  `hsl(${(name.charCodeAt(0) * 7) % 360}, 60%, 40%)`;
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function MemberDashboardPage({
   params,
@@ -18,52 +91,72 @@ export default async function MemberDashboardPage({
   params: Promise<{ memberId: string }>;
 }) {
   const { memberId } = await params;
-  const member = getMemberById(memberId);
 
-  if (!member) {
-    notFound();
-  }
+  const member = await getVerifier(memberId);
 
-  const activities = getActivitiesForAdmin(member.name).slice(0, 5);
-  const submissionsInQueue = mockSubmissions.filter((submission) => submission.currentVerifier === member.role);
+  if (!member) notFound();
+
+  const joinedDate    = formatDate(member.createdAt);
+  const lastUpdated   = formatDate(member.updatedAt);
 
   const stats = [
     {
-      label: 'Role',
-      value: member.role,
-      icon: <Shield size={20} />,
+      label:     'Role',
+      value:     member.role,
+      icon:      <Shield size={20} />,
       iconStyle: { backgroundColor: '#dbeafe', color: '#2563eb' },
     },
     {
-      label: 'Department',
-      value: member.department,
-      icon: <Building2 size={20} />,
+      label:     'Department',
+      value:     member.department,
+      icon:      <Building2 size={20} />,
       iconStyle: { backgroundColor: '#dcfce7', color: '#15803d' },
     },
     {
-      label: 'Active Queue',
-      value: submissionsInQueue.length.toString(),
-      icon: <Workflow size={20} />,
-      href: `/forms/pending?verifier=${encodeURIComponent(member.role)}`,
+      label:     'Active Queue',
+      value:     'View',
+      icon:      <Workflow size={20} />,
+      href:      `/forms/pending?verifier=${encodeURIComponent(member.role)}`,
       iconStyle: { backgroundColor: '#fef3c7', color: '#b45309' },
     },
     {
-      label: 'Activities Logged',
-      value: activities.length.toString(),
-      icon: <Calendar size={20} />,
-      href: `/activity?admin=${encodeURIComponent(member.name)}`,
+      label:     'Member Since',
+      value:     new Date(member.createdAt).getFullYear().toString(),
+      icon:      <Calendar size={20} />,
       iconStyle: { backgroundColor: '#ede9fe', color: '#7c3aed' },
     },
   ];
 
   return (
     <div className={styles.dashboardWrapper}>
+
+      {/* ── Hero ── */}
       <section className={styles.memberHero}>
         <div className={styles.memberHeroContent}>
-          <img src={member.avatar} alt={member.name} className={styles.memberPhoto} />
+
+          {/* Initials avatar — Verifier has no avatar URL */}
+          <div
+            className={styles.memberPhoto}
+            style={{
+              display:         'flex',
+              alignItems:      'center',
+              justifyContent:  'center',
+              background:      avatarHue(member.userName),
+              color:           '#fff',
+              fontSize:        '1.5rem',
+              fontWeight:      700,
+              borderRadius:    '50%',
+              flexShrink:      0,
+            }}
+          >
+            {initials(member.userName)}
+          </div>
+
           <div className={styles.memberHeroMeta}>
-            <h1 className={styles.memberHeroTitle}>{member.name}</h1>
-            <p className={styles.memberHeroSubtitle}>Member dashboard for frontend-only details, assignments, recent actions, and filtered workflow access.</p>
+            <h1 className={styles.memberHeroTitle}>{member.userName}</h1>
+            <p className={styles.memberHeroSubtitle}>
+              Member dashboard — contact details, role assignment, and workflow access.
+            </p>
             <div className={styles.memberBadgeRow}>
               <span className={styles.memberBadge}>
                 <BadgeCheck size={14} />
@@ -75,29 +168,36 @@ export default async function MemberDashboardPage({
               </span>
               <span className={styles.memberBadge}>
                 <Calendar size={14} />
-                Joined {member.joinedDate}
+                Joined {joinedDate}
               </span>
             </div>
           </div>
         </div>
+
         <div className={styles.memberHeroActions}>
           <Link href={`/members/all/${member.id}/edit`} className={styles.primaryAction}>
             <Edit2 size={16} />
             Edit Member
           </Link>
-          <Link href={`/activity?admin=${encodeURIComponent(member.name)}`} className={styles.secondaryAction}>
+          <Link
+            href={`/forms/pending?verifier=${encodeURIComponent(member.role)}`}
+            className={styles.secondaryAction}
+          >
             <ArrowUpRight size={16} />
-            View All Activity
+            View Queue
           </Link>
         </div>
       </section>
 
+      {/* ── Stats ── */}
       <div className={styles.statsGrid}>
         {stats.map((stat) => {
           const content = (
             <>
               <div className={styles.statTop}>
-                <div className={styles.iconBox} style={stat.iconStyle}>{stat.icon}</div>
+                <div className={styles.iconBox} style={stat.iconStyle}>
+                  {stat.icon}
+                </div>
                 {stat.href && <ArrowUpRight size={14} className={styles.statActionIcon} />}
               </div>
               <p className={styles.statValue}>{stat.value}</p>
@@ -106,7 +206,11 @@ export default async function MemberDashboardPage({
           );
 
           return stat.href ? (
-            <Link key={stat.label} href={stat.href} className={`${styles.statCard} ${styles.statCardLink} ${styles.memberStatCard}`}>
+            <Link
+              key={stat.label}
+              href={stat.href}
+              className={`${styles.statCard} ${styles.statCardLink} ${styles.memberStatCard}`}
+            >
               {content}
             </Link>
           ) : (
@@ -117,78 +221,100 @@ export default async function MemberDashboardPage({
         })}
       </div>
 
+      {/* ── Detail panels ── */}
       <div className={styles.chartGrid}>
+
+        {/* Member Profile */}
         <div className={`${styles.chartCardLarge} ${styles.memberPanel}`}>
           <div className={styles.memberPanelContent}>
-          <div className={styles.chartHeader}>
-            <h3 className={styles.chartTitle}>Member Profile</h3>
-            <p className={styles.chartSubtitle}>Small details and current assignment summary</p>
-          </div>
-          <div className={styles.infoGrid}>
-            <div className={styles.infoTile}>
-              <Mail size={18} color="#2563eb" />
-              <div>
-                <span className={styles.infoLabel}>Email</span>
-                <strong>{member.email}</strong>
+            <div className={styles.chartHeader}>
+              <h3 className={styles.chartTitle}>Member Profile</h3>
+              <p className={styles.chartSubtitle}>Contact details and account information</p>
+            </div>
+            <div className={styles.infoGrid}>
+              <div className={styles.infoTile}>
+                <Mail size={18} color="#2563eb" />
+                <div>
+                  <span className={styles.infoLabel}>Email</span>
+                  <strong>{member.email}</strong>
+                </div>
+              </div>
+              <div className={styles.infoTile}>
+                <Phone size={18} color="#0f766e" />
+                <div>
+                  <span className={styles.infoLabel}>Mobile</span>
+                  <strong>{member.mobileNo}</strong>
+                </div>
+              </div>
+              <div className={styles.infoTile}>
+                <Building2 size={18} color="#7c3aed" />
+                <div>
+                  <span className={styles.infoLabel}>Department</span>
+                  <strong>{member.department}</strong>
+                </div>
+              </div>
+              <div className={styles.infoTile}>
+                <Calendar size={18} color="#b45309" />
+                <div>
+                  <span className={styles.infoLabel}>Joined</span>
+                  <strong>{joinedDate}</strong>
+                </div>
               </div>
             </div>
-            <div className={styles.infoTile}>
-              <Phone size={18} color="#0f766e" />
-              <div>
-                <span className={styles.infoLabel}>Phone</span>
-                <strong>{member.phone}</strong>
-              </div>
-            </div>
-            <div className={styles.infoTile}>
-              <Building2 size={18} color="#7c3aed" />
-              <div>
-                <span className={styles.infoLabel}>Office</span>
-                <strong>{member.office}</strong>
-              </div>
-            </div>
-            <div className={styles.infoTile}>
-              <Calendar size={18} color="#b45309" />
-              <div>
-                <span className={styles.infoLabel}>Joined</span>
-                <strong>{member.joinedDate}</strong>
-              </div>
-            </div>
-          </div>
           </div>
         </div>
 
+        {/* Current Role */}
         <div className={`${styles.chartCard} ${styles.memberPanel}`}>
           <div className={styles.memberPanelContent}>
-          <div className={styles.chartHeader}>
-            <h3 className={styles.chartTitle}>Current Role</h3>
-            <p className={styles.chartSubtitle}>Primary verification responsibility</p>
-          </div>
-          <div className={styles.statusList}>
-            <div className={styles.statusRow}>
-              <span>Designation</span>
-              <span className={`${styles.statusBadge} ${roleBadgeColors[member.role] ?? styles.statusDefault}`}>{member.role}</span>
+            <div className={styles.chartHeader}>
+              <h3 className={styles.chartTitle}>Current Role</h3>
+              <p className={styles.chartSubtitle}>Primary verification responsibility</p>
             </div>
-            <div className={styles.statusRow}>
-              <span>Open handled forms</span>
-              <span className={styles.statusValue}>{member.activeFormsHandled}</span>
+            <div className={styles.statusList}>
+              <div className={styles.statusRow}>
+                <span>Designation</span>
+                <span
+                  className={`${styles.statusBadge} ${
+                    roleBadgeColors[member.role] ?? styles.statusDefault
+                  }`}
+                >
+                  {member.role}
+                </span>
+              </div>
+              <div className={styles.statusRow}>
+                <span>Department</span>
+                <span className={styles.statusValue}>{member.department}</span>
+              </div>
+              <div className={styles.statusRow}>
+                <span>Member ID</span>
+                <span className={styles.statusValue}>
+                  {member.id.slice(0, 8).toUpperCase()}
+                </span>
+              </div>
+              <div className={styles.statusRow}>
+                <span>Last Updated</span>
+                <span className={styles.statusValue}>{lastUpdated}</span>
+              </div>
             </div>
-            <div className={styles.statusRow}>
-              <span>Pending queue</span>
-              <span className={styles.statusValue}>{submissionsInQueue.length}</span>
-            </div>
-          </div>
           </div>
         </div>
       </div>
 
+      {/* ── Verification Actions table ── */}
       <div className={styles.tableCard}>
         <div className={styles.tableHeader}>
           <div>
-            <h3 className={styles.chartTitle}>Recent Activities</h3>
-            <p className={styles.chartSubtitle}>Latest logged actions by {member.name}</p>
+            <h3 className={styles.chartTitle}>Recent Verification Actions</h3>
+            <p className={styles.chartSubtitle}>
+              Latest actions performed by {member.userName}
+            </p>
           </div>
-          <Link href={`/activity?admin=${encodeURIComponent(member.name)}`} className={styles.viewAllBtn}>
-            View All <ArrowUpRight size={14} />
+          <Link
+            href={`/forms/pending?verifier=${encodeURIComponent(member.role)}`}
+            className={styles.viewAllBtn}
+          >
+            View Queue <ArrowUpRight size={14} />
           </Link>
         </div>
 
@@ -196,26 +322,31 @@ export default async function MemberDashboardPage({
           <table className={styles.table}>
             <thead>
               <tr>
-                {['Timestamp', 'Action', 'Target'].map((heading) => <th key={heading}>{heading}</th>)}
+                {['Field', 'Value'].map((h) => (
+                  <th key={h}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {activities.map((activity) => (
-                <tr key={activity.id}>
-                  <td>{activity.timestamp}</td>
-                  <td>{activity.action}</td>
-                  <td>{activity.target}</td>
+              {[
+                { field: 'Full Name',    value: member.userName },
+                { field: 'Email',        value: member.email },
+                { field: 'Mobile',       value: member.mobileNo },
+                { field: 'Role',         value: member.role },
+                { field: 'Department',   value: member.department },
+                { field: 'Joined',       value: joinedDate },
+                { field: 'Last Updated', value: lastUpdated },
+              ].map(({ field, value }) => (
+                <tr key={field}>
+                  <td className="text-gray-500 dark:text-gray-400 font-medium">{field}</td>
+                  <td>{value}</td>
                 </tr>
               ))}
-              {activities.length === 0 && (
-                <tr>
-                  <td colSpan={3} className={styles.emptyCell}>No recent activities found for this member.</td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
       </div>
+
     </div>
   );
 }

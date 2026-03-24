@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { authOptions } from "../../auth/[...nextauth]/options";
+import { ActorType, LogAction } from "../../../../../generated/prisma/enums";
 
 const allowedTypes = [
     "text", "number", "date", "file", "checkbox",
@@ -124,8 +125,10 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        // ── Create form + verifier levels in one transaction ──────────────
+        // ── Create form + verifier levels + audit log in one transaction ───
         const createdForm = await prisma.$transaction(async (tx) => {
+
+            // 1. Create the form
             const form = await tx.form.create({
                 data: {
                     title:       title.trim(),
@@ -136,7 +139,7 @@ export async function POST(req: NextRequest) {
                 },
             });
 
-            // Create ordered verifier levels
+            // 2. Create ordered verifier levels
             await tx.formVerifierLevel.createMany({
                 data: verifiers.map((v: any) => ({
                     formId:     form.id,
@@ -145,7 +148,35 @@ export async function POST(req: NextRequest) {
                 })),
             });
 
-            // Return form with verifier levels included
+            // 3. Save audit log
+            await tx.auditLog.create({
+                data: {
+                    action:         LogAction.FORM_CREATED,
+                    entity:         "Form",
+                    entityId:       String(form.id),
+                    actorType:      ActorType.User,
+                    actorUserId:    session.user.id,        // admin's User id
+                    formId:         form.id,
+                    diff: {
+                        before: null,
+                        after: {
+                            title:       form.title,
+                            description: form.description,
+                            deadline:    form.deadline,
+                            formStatus:  form.formStatus,
+                            formFields:  form.formFields,
+                            verifiers:   verifiers,         // levels snapshot
+                        },
+                    },
+                    meta: {
+                        ip:        req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown",
+                        userAgent: req.headers.get("user-agent") ?? "unknown",
+                        adminEmail: session.user.email,
+                    },
+                },
+            });
+
+            // 4. Return form with verifier levels included
             return tx.form.findUnique({
                 where: { id: form.id },
                 include: {
