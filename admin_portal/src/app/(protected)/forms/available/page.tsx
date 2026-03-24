@@ -70,7 +70,7 @@ export default function AvailableFormsPage() {
       if (statusFilter !== 'All') params.set('formStatus', statusFilter === 'Active' ? 'true' : 'false');
       if (search) params.set('search', search);
 
-      const { data } = await axios.get(`/api/forms?${params.toString()}`);
+      const { data } = await axios.get(`/api/form/getAllForms?${params.toString()}`);
       setForms(data.data);
       setMeta(data.meta);
     } catch (err) {
@@ -89,7 +89,7 @@ export default function AvailableFormsPage() {
   // Reset page on filter change
   useEffect(() => { setPage(1); }, [search, statusFilter]);
 
-  // ── Client search filter (over current page) ───────────────────────
+  // ── Client-side search filter (over current page) ──────────────────
   const filtered = useMemo(() => {
     if (!search.trim()) return forms;
     const q = search.toLowerCase();
@@ -103,7 +103,6 @@ export default function AvailableFormsPage() {
     try {
       await axios.patch(`/api/forms/${form.id}`, { formStatus: !form.formStatus });
       toast.success(`Form ${form.formStatus ? 'deactivated' : 'activated'} successfully`);
-      // Optimistic update
       setForms((prev) =>
         prev.map((f) => f.id === form.id ? { ...f, formStatus: !f.formStatus } : f)
       );
@@ -125,7 +124,6 @@ export default function AvailableFormsPage() {
       toast.success('Form deleted successfully');
       setDeleteConfirm(null);
       setOpenMenu(null);
-      // Refetch to keep pagination accurate
       fetchForms();
     } catch (err) {
       const msg = axios.isAxiosError(err)
@@ -452,7 +450,10 @@ export default function AvailableFormsPage() {
                 disabled={deleting}
                 className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors cursor-pointer disabled:opacity-70 flex items-center justify-center gap-2"
               >
-                {deleting ? <><Loader2 size={14} className="animate-spin" /> Deleting...</> : 'Delete Form'}
+                {deleting
+                  ? <><Loader2 size={14} className="animate-spin" /> Deleting...</>
+                  : 'Delete Form'
+                }
               </button>
             </div>
           </div>

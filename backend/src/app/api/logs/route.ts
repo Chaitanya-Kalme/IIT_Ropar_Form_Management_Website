@@ -1,7 +1,7 @@
 // app/api/logs/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAllLogs } from "@/lib/logHelper";
+import { getAllLogs } from "@/lib/logHelper"
 import { ActorType, LogAction } from "../../../../generated/prisma/enums";
 
 export async function GET(req: NextRequest) {

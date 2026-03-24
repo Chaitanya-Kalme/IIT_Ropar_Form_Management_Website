@@ -1,56 +1,141 @@
-export interface User {
-  id:        string;
-  userName:  string;
-  email:     string;
-  createdAt: string;
-  updatedAt: string;
-  _count: { formSubmissions: number };
-}
 
-export interface UsersMeta {
-  total:       number;
-  page:        number;
-  limit:       number;
-  totalPages:  number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-}
 
-export interface GetUsersOptions {
-  page?:      number;
-  limit?:     number;
-  search?:    string;
-  sortBy?:    "createdAt" | "updatedAt" | "userName" | "email";
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+import { ActorType, LogAction } from "../../generated/prisma/enums";
+import { prisma } from "./prisma";
+
+interface GetLogsOptions {
+  // Pagination
+  page?: number;
+  limit?: number;
+
+  // Filters
+  action?: LogAction;
+  actorType?: ActorType;
+  actorUserId?: string;
+  actorVerifierId?: string;
+  entity?: string;
+  entityId?: string;
+  formId?: number;
+  submissionId?: string;
+
+  // Date range
+  from?: Date;
+  to?: Date;
+
+  // Sorting
   sortOrder?: "asc" | "desc";
-  from?:      Date;
-  to?:        Date;
 }
 
-export async function getUsers(options: GetUsersOptions = {}) {
+// ─── Master log fetcher ───────────────────────────────────────────────────────
+
+export async function getAllLogs(options: GetLogsOptions = {}) {
   const {
-    page      = 1,
-    limit     = 20,
-    search,
-    sortBy    = "createdAt",
-    sortOrder = "desc",
+    page = 1,
+    limit = 20,
+    action,
+    actorType,
+    actorUserId,
+    actorVerifierId,
+    entity,
+    entityId,
+    formId,
+    submissionId,
     from,
     to,
+    sortOrder = "desc",
   } = options;
 
-  const params = new URLSearchParams();
-  params.set("page",      String(page));
-  params.set("limit",     String(limit));
-  params.set("sortBy",    sortBy);
-  params.set("sortOrder", sortOrder);
+  const skip = (page - 1) * limit;
 
-  if (search) params.set("search", search);
-  if (from)   params.set("from",   from.toISOString());
-  if (to)     params.set("to",     to.toISOString());
+  const where = {
+    ...(action && { action }),
+    ...(actorType && { actorType }),
+    ...(actorUserId && { actorUserId }),
+    ...(actorVerifierId && { actorVerifierId }),
+    ...(entity && { entity }),
+    ...(entityId && { entityId }),
+    ...(formId && { formId }),
+    ...(submissionId && { submissionId }),
+    ...((from || to) && {
+      createdAt: {
+        ...(from && { gte: from }),
+        ...(to && { lte: to }),
+      },
+    }),
+  };
 
-  const res  = await fetch(`/api/users/getAllUsers?${params.toString()}`);
-  const json = await res.json();
+  const [logs, total] = await prisma.$transaction([
+    prisma.auditLog.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: sortOrder },
+      include: {
+        actorUser: {
+          select: { id: true, userName: true, email: true },
+        },
+        actorVerifier: {
+          select: { id: true, userName: true, email: true, role: true },
+        },
+        form: {
+          select: { id: true, title: true },
+        },
+        submission: {
+          select: { id: true, overallStatus: true, currentLevel: true },
+        },
+      },
+    }),
+    prisma.auditLog.count({ where }),
+  ]);
 
-  if (!res.ok) throw new Error(json.message ?? "Failed to fetch users");
+  return {
+    data: logs,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      hasNextPage: page * limit < total,
+      hasPrevPage: page > 1,
+    },
+  };
+}
 
-  return json as { success: boolean; data: User[]; meta: UsersMeta };
+// ─── Scoped helpers ───────────────────────────────────────────────────────────
+
+/** All logs for a specific form */
+export async function getLogsByForm(formId: number, options: GetLogsOptions = {}) {
+  return getAllLogs({ ...options, formId });
+}
+
+/** All logs for a specific submission */
+export async function getLogsBySubmission(submissionId: string, options: GetLogsOptions = {}) {
+  return getAllLogs({ ...options, submissionId });
+}
+
+/** All logs triggered by a User */
+export async function getLogsByUser(actorUserId: string, options: GetLogsOptions = {}) {
+  return getAllLogs({ ...options, actorUserId, actorType: ActorType.User });
+}
+
+/** All logs triggered by a Verifier */
+export async function getLogsByVerifier(actorVerifierId: string, options: GetLogsOptions = {}) {
+  return getAllLogs({ ...options, actorVerifierId, actorType: ActorType.Verifier });
+}
+
+/** All logs for a specific entity type (e.g. "Form", "FormSubmissions") */
+export async function getLogsByEntity(entity: string, entityId?: string, options: GetLogsOptions = {}) {
+  return getAllLogs({ ...options, entity, ...(entityId && { entityId }) });
+}
+
+/** All logs within a date range */
+export async function getLogsByDateRange(from: Date, to: Date, options: GetLogsOptions = {}) {
+  return getAllLogs({ ...options, from, to });
+}
+
+/** Logs for a specific action type */
+export async function getLogsByAction(action: LogAction, options: GetLogsOptions = {}) {
+  return getAllLogs({ ...options, action });
 }
