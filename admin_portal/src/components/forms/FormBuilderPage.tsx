@@ -6,7 +6,7 @@ import {
   GripVertical, Trash2, Plus, X, ChevronUp, ChevronDown,
   FileText, Hash, Phone, Mail, MapPin, Building, BookOpen, Calendar,
   Upload, CheckSquare, Circle, List, Type, AlignLeft, Settings,
-  Eye, Zap, Info, ArrowLeft, Loader2,
+  Eye, Zap, Info, ArrowLeft, Loader2, AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
@@ -19,20 +19,20 @@ type FormFieldType =
   | 'radio' | 'select' | 'textarea' | 'email' | 'tel';
 
 interface FormField {
-  id:          string;
-  label:       string;
-  type:        FormFieldType;
-  required:    boolean;
+  id:           string;
+  label:        string;
+  type:         FormFieldType;
+  required:     boolean;
   placeholder?: string;
-  options?:    string[];
-  isCustom?:   boolean;
+  options?:     string[];
+  isCustom?:    boolean;
 }
 
 interface VerifierLevel {
-  id:         string;      // local UI id only
-  verifierId: string;      // real DB Verifier.id (uuid)
-  name:       string;      // display name
-  role:       string;      // display role
+  id:         string;   // local UI id only
+  verifierId: string;   // real DB Verifier.id (uuid)
+  name:       string;
+  role:       string;
 }
 
 interface ApiVerifier {
@@ -48,13 +48,13 @@ interface ApiVerifier {
 const QUICK_FIELDS: {
   label: string; type: FormFieldType; icon: React.ReactNode; placeholder?: string;
 }[] = [
-  { label: 'Name',        type: 'text',     icon: <FileText size={14} />, placeholder: 'Enter full name'      },
-  { label: 'Age',         type: 'number',   icon: <Hash size={14} />,     placeholder: 'Enter age'            },
-  { label: 'Mobile',      type: 'tel',      icon: <Phone size={14} />,    placeholder: 'Enter mobile number'  },
-  { label: 'Email',       type: 'email',    icon: <Mail size={14} />,     placeholder: 'Enter email address'  },
-  { label: 'Address',     type: 'textarea', icon: <MapPin size={14} />,   placeholder: 'Enter full address'   },
-  { label: 'Department',  type: 'text',     icon: <Building size={14} />, placeholder: 'Enter department'     },
-  { label: 'Roll Number', type: 'text',     icon: <BookOpen size={14} />, placeholder: 'Enter roll number'    },
+  { label: 'Name',        type: 'text',     icon: <FileText size={14} />, placeholder: 'Enter full name'     },
+  { label: 'Age',         type: 'number',   icon: <Hash size={14} />,     placeholder: 'Enter age'           },
+  { label: 'Mobile',      type: 'tel',      icon: <Phone size={14} />,    placeholder: 'Enter mobile number' },
+  { label: 'Email',       type: 'email',    icon: <Mail size={14} />,     placeholder: 'Enter email address' },
+  { label: 'Address',     type: 'textarea', icon: <MapPin size={14} />,   placeholder: 'Enter full address'  },
+  { label: 'Department',  type: 'text',     icon: <Building size={14} />, placeholder: 'Enter department'    },
+  { label: 'Roll Number', type: 'text',     icon: <BookOpen size={14} />, placeholder: 'Enter roll number'   },
 ];
 
 const fieldTypeOptions: { value: FormFieldType; label: string; icon: React.ReactNode }[] = [
@@ -128,40 +128,27 @@ function CustomFieldForm({ onAdd, onCancel }: CustomFieldFormProps) {
       <h4 className="text-sm font-semibold text-[#1E3A8A] dark:text-blue-300 flex items-center gap-2">
         <Zap size={14} /> Add Custom Field
       </h4>
-
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Field Label</label>
         <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g., Passport No., CGPA..." className={styles.input} />
       </div>
-
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Input Type</label>
         <div className="grid grid-cols-2 gap-1.5">
           {fieldTypeOptions.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setType(option.value)}
-              className={`${styles.typeSelector} ${type === option.value ? styles.typeSelectorActive : ''}`}
-            >
+            <button key={option.value} type="button" onClick={() => setType(option.value)}
+              className={`${styles.typeSelector} ${type === option.value ? styles.typeSelectorActive : ''}`}>
               {option.icon} {option.label}
             </button>
           ))}
         </div>
       </div>
-
       {needsOptions && (
         <div>
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Options</label>
           <div className="flex gap-2 mb-2">
-            <input
-              type="text"
-              value={newOption}
-              onChange={(e) => setNewOption(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addOption()}
-              placeholder="Type option name..."
-              className={styles.input}
-            />
+            <input type="text" value={newOption} onChange={(e) => setNewOption(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addOption()} placeholder="Type option name..." className={styles.input} />
             <button type="button" onClick={addOption} className="w-8 h-8 bg-[#1E3A8A] text-white rounded-lg flex items-center justify-center hover:bg-[#1e3a8a]/90 flex-shrink-0">
               <Plus size={14} />
             </button>
@@ -178,12 +165,10 @@ function CustomFieldForm({ onAdd, onCancel }: CustomFieldFormProps) {
           </div>
         </div>
       )}
-
       <div className="flex items-center gap-2">
         <input type="checkbox" id="required" checked={required} onChange={(e) => setRequired(e.target.checked)} className="w-3.5 h-3.5" />
         <label htmlFor="required" className="text-xs text-gray-600 dark:text-gray-400">Required field</label>
       </div>
-
       <div className="flex gap-2 pt-1">
         <button type="button" onClick={handleAdd} className="flex-1 py-2 bg-[#1E3A8A] text-white text-xs font-semibold rounded-lg hover:bg-[#1e3a8a]/90 transition-colors cursor-pointer">
           Add to Form
@@ -216,12 +201,64 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
   const [showCustomForm,  setShowCustomForm]  = useState(false);
   const [saving,          setSaving]          = useState(false);
 
+  // ── Form fetch state (edit mode only) ──────────────────────────────
+  const [formLoading, setFormLoading] = useState(mode === 'edit');
+  const [formError,   setFormError]   = useState<string | null>(null);
+
   // ── Available verifiers from DB ────────────────────────────────────
-  const [availableVerifiers,        setAvailableVerifiers]        = useState<ApiVerifier[]>([]);
-  const [verifiersLoading,          setVerifiersLoading]          = useState(true);
-  const [verifiersError,            setVerifiersError]            = useState<string | null>(null);
-  const [verifierSearch,            setVerifierSearch]            = useState('');
-  const [showVerifierDropdown,      setShowVerifierDropdown]      = useState(false);
+  const [availableVerifiers,   setAvailableVerifiers]   = useState<ApiVerifier[]>([]);
+  const [verifiersLoading,     setVerifiersLoading]     = useState(true);
+  const [verifiersError,       setVerifiersError]       = useState<string | null>(null);
+  const [verifierSearch,       setVerifierSearch]       = useState('');
+  const [showVerifierDropdown, setShowVerifierDropdown] = useState(false);
+
+  // ── Fetch existing form data (edit mode) ───────────────────────────
+  const fetchForm = useCallback(async () => {
+    if (mode !== 'edit' || !formId) return;
+    setFormLoading(true);
+    setFormError(null);
+    try {
+      const { data } = await axios.get(`/api/forms/getForm/${formId}`);
+      const form = data.data;
+
+      setFormTitle(form.title);
+      setFormDescription(form.description ?? '');
+      // deadline comes as ISO string — slice to YYYY-MM-DD for date input
+      setDeadline(form.deadline.slice(0, 10));
+      setIsActive(form.formStatus);
+
+      // Hydrate fields — assign local ids since DB fields don't have them
+      const hydratedFields: FormField[] = (form.formFields as any[]).map((f: any) => ({
+        id:          generateId(),
+        label:       f.label,
+        type:        f.type as FormFieldType,
+        required:    f.required,
+        placeholder: f.placeholder,
+        options:     f.options,
+      }));
+      setFields(hydratedFields);
+
+      // Hydrate verifiers from verifiersList (already ordered by level asc)
+      const hydratedVerifiers: VerifierLevel[] = form.verifiersList.map((vl: any) => ({
+        id:         generateId(),
+        verifierId: vl.verifier.id,
+        name:       vl.verifier.userName,
+        role:       vl.verifier.role,
+      }));
+      setVerifiers(hydratedVerifiers);
+
+    } catch (err) {
+      const msg = axios.isAxiosError(err)
+        ? err.response?.data?.message ?? err.message
+        : 'Failed to load form';
+      setFormError(msg);
+      toast.error(msg);
+    } finally {
+      setFormLoading(false);
+    }
+  }, [mode, formId]);
+
+  useEffect(() => { fetchForm(); }, [fetchForm]);
 
   // ── Fetch verifiers from DB ────────────────────────────────────────
   const fetchVerifiers = useCallback(async () => {
@@ -241,9 +278,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
     }
   }, []);
 
-  useEffect(() => {
-    fetchVerifiers();
-  }, [fetchVerifiers]);
+  useEffect(() => { fetchVerifiers(); }, [fetchVerifiers]);
 
   // ── Quick fields ───────────────────────────────────────────────────
   const addedLabels = new Set(fields.map((f) => f.label));
@@ -253,8 +288,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
     setFields((prev) => [...prev, { id: generateId(), label: qf.label, type: qf.type, required: true, placeholder: qf.placeholder }]);
   };
 
-  const removeField = (id: string) =>
-    setFields((prev) => prev.filter((f) => f.id !== id));
+  const removeField = (id: string) => setFields((prev) => prev.filter((f) => f.id !== id));
 
   const moveField = (index: number, direction: 'up' | 'down') => {
     const next   = [...fields];
@@ -282,27 +316,21 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
     setShowVerifierDropdown(false);
   };
 
-  const removeVerifier = (id: string) =>
-    setVerifiers((prev) => prev.filter((v) => v.id !== id));
+  const removeVerifier = (id: string) => setVerifiers((prev) => prev.filter((v) => v.id !== id));
 
   // ── Submit ─────────────────────────────────────────────────────────
   const handleSave = async () => {
-    // Validate
-    if (!formTitle.trim())  { toast.error('Form title is required');           return; }
-    if (!deadline)          { toast.error('Deadline is required');             return; }
+    if (!formTitle.trim())      { toast.error('Form title is required');           return; }
+    if (!deadline)              { toast.error('Deadline is required');             return; }
     if (fields.length === 0)    { toast.error('Please add at least one field');    return; }
     if (verifiers.length === 0) { toast.error('Please add at least one verifier'); return; }
 
-    // Shape fields for API — strip UI-only id & isCustom
     const apiFields = fields.map(({ label, type, required, placeholder, options }) => ({
-      label,
-      type,
-      required,
+      label, type, required,
       ...(placeholder && { placeholder }),
       ...(options     && { options }),
     }));
 
-    // Shape verifiers — level = position + 1
     const apiVerifiers = verifiers.map((v, i) => ({
       verifierId: v.verifierId,
       level:      i + 1,
@@ -320,18 +348,13 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
     setSaving(true);
     try {
       if (mode === 'create') {
-        await axios.post('/api/forms', payload);
+        await axios.post('/api/forms/createForm', payload);
         toast.success('Form published successfully');
-        // Reset
-        setFormTitle('');
-        setFormDescription('');
-        setDeadline('');
-        setIsActive(true);
-        setFields([]);
-        setVerifiers([]);
+        setFormTitle(''); setFormDescription(''); setDeadline('');
+        setIsActive(true); setFields([]); setVerifiers([]);
         router.push('/forms');
       } else {
-        await axios.patch(`/api/forms/${formId}`, payload);
+        await axios.patch(`/api/form/getForm/${formId}`, payload);
         toast.success('Form updated successfully');
         router.push(`/forms/available/${formId}`);
       }
@@ -352,17 +375,44 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
     ? 'Update the form configuration, fields, and verification flow.'
     : 'Build a new form with custom fields and a verification flow.';
 
+  // ── Full-page loading state (edit mode fetching) ───────────────────
+  if (formLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-3">
+        <Loader2 size={28} className="animate-spin text-[#1E3A8A]" />
+        <p className="text-sm text-gray-500 dark:text-gray-400">Loading form data...</p>
+      </div>
+    );
+  }
+
+  // ── Full-page error state (edit mode fetch failed) ─────────────────
+  if (formError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
+          <AlertCircle size={22} className="text-red-500" />
+        </div>
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{formError}</p>
+        <div className="flex gap-3">
+          <button onClick={fetchForm} className="px-4 py-2 text-sm bg-[#1E3A8A] text-white rounded-xl hover:bg-[#1e3a8a]/90">
+            Retry
+          </button>
+          <button onClick={() => router.back()} className="px-4 py-2 text-sm border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800">
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`space-y-6 ${styles.page}`} style={{ fontFamily: 'Inter, sans-serif' }}>
 
       {/* ── Page header ── */}
       <div className={styles.pageHeader}>
         {mode === 'edit' && (
-          <button
-            type="button"
-            onClick={() => router.push(`/forms/available/${formId}`)}
-            className="mb-4 inline-flex items-center gap-2 text-sm text-[#1E3A8A] dark:text-blue-400 font-medium"
-          >
+          <button type="button" onClick={() => router.push(`/forms/available/${formId}`)}
+            className="mb-4 inline-flex items-center gap-2 text-sm text-[#1E3A8A] dark:text-blue-400 font-medium">
             <ArrowLeft size={16} /> Back to form dashboard
           </button>
         )}
@@ -381,13 +431,8 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
               {QUICK_FIELDS.map((qf) => {
                 const added = addedLabels.has(qf.label);
                 return (
-                  <button
-                    key={qf.label}
-                    type="button"
-                    onClick={() => addQuickField(qf)}
-                    disabled={added}
-                    className={`${styles.quickChip} ${added ? styles.quickChipAdded : ''}`}
-                  >
+                  <button key={qf.label} type="button" onClick={() => addQuickField(qf)} disabled={added}
+                    className={`${styles.quickChip} ${added ? styles.quickChipAdded : ''}`}>
                     {qf.icon} {qf.label}
                   </button>
                 );
@@ -400,11 +445,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
             <h3 className={`${styles.sectionTitle} mb-5`}>Custom Field</h3>
             {showCustomForm ? (
               <CustomFieldForm
-                onAdd={(field) => {
-                  setFields((prev) => [...prev, field]);
-                  setShowCustomForm(false);
-                  toast.success(`"${field.label}" field added`);
-                }}
+                onAdd={(field) => { setFields((prev) => [...prev, field]); setShowCustomForm(false); toast.success(`"${field.label}" field added`); }}
                 onCancel={() => setShowCustomForm(false)}
               />
             ) : (
@@ -422,40 +463,25 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
               </div>
               <h3 className={styles.sectionTitle}>Form Settings</h3>
             </div>
-
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
                   Form Title <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  placeholder="e.g., Hostel Leave Application"
-                  className={styles.input}
-                />
+                <input type="text" value={formTitle} onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="e.g., Hostel Leave Application" className={styles.input} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Description</label>
-                <textarea
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="Brief description of the form..."
-                  className={styles.input}
-                />
+                <textarea value={formDescription} onChange={(e) => setFormDescription(e.target.value)}
+                  placeholder="Brief description of the form..." className={styles.input} />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
                   Deadline <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="date"
-                  value={deadline}
-                  onChange={(e) => setDeadline(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className={styles.input}
-                />
+                <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]} className={styles.input} />
               </div>
               <div className="flex items-center justify-between">
                 <div>
@@ -464,11 +490,8 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
                     {isActive ? 'Active — accepting submissions' : 'Draft — not visible to users'}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsActive(!isActive)}
-                  className={`relative w-11 h-6 rounded-full cursor-pointer transition-colors ${isActive ? 'bg-[#22C55E]' : 'bg-gray-300 dark:bg-gray-600'}`}
-                >
+                <button type="button" onClick={() => setIsActive(!isActive)}
+                  className={`relative w-11 h-6 rounded-full cursor-pointer transition-colors ${isActive ? 'bg-[#22C55E]' : 'bg-gray-300 dark:bg-gray-600'}`}>
                   <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isActive ? 'translate-x-5' : ''}`} />
                 </button>
               </div>
@@ -476,7 +499,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
           </div>
 
           {/* ── Verification flow ── */}
-          <div className={styles.card}>
+          <div className={styles.card} style={{ overflow: 'visible' }}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 rounded-lg">
                 <Zap size={20} className="text-teal-600 dark:text-teal-400" />
@@ -486,14 +509,12 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
 
             {/* Current verifier chain */}
             {verifiers.length > 0 && (
-              <div className="mb-4 space-y-0">
+              <div className="mb-4">
                 {verifiers.map((v, i) => (
                   <div key={v.id} className="flex items-center gap-3 mb-3 last:mb-0">
                     <div className="flex flex-col items-center">
                       <div className={styles.levelCircle}>{i + 1}</div>
-                      {i < verifiers.length - 1 && (
-                        <div className="w-0.5 h-6 bg-blue-200 dark:bg-blue-700 mt-1" />
-                      )}
+                      {i < verifiers.length - 1 && <div className="w-0.5 h-6 bg-blue-200 dark:bg-blue-700 mt-1" />}
                     </div>
                     <div className={styles.verifierCard}>
                       <div>
@@ -501,11 +522,8 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
                         <p className="text-sm font-medium text-gray-800 dark:text-white">{v.name}</p>
                         <p className="text-xs text-gray-400">{v.role}</p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeVerifier(v.id)}
-                        className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
-                      >
+                      <button type="button" onClick={() => removeVerifier(v.id)}
+                        className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer">
                         <X size={14} />
                       </button>
                     </div>
@@ -530,44 +548,62 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
                   <button onClick={fetchVerifiers} className="underline">Retry</button>
                 </div>
               ) : (
-                <>
+                <div className="relative">
                   <input
                     type="text"
                     value={verifierSearch}
                     onChange={(e) => { setVerifierSearch(e.target.value); setShowVerifierDropdown(true); }}
                     onFocus={() => setShowVerifierDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowVerifierDropdown(false), 150)}
+                    onBlur={() => setTimeout(() => setShowVerifierDropdown(false), 200)}
                     placeholder="Search verifier by name, role, or department..."
                     className={styles.input}
                   />
 
                   {showVerifierDropdown && (
-                    <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                    <div
+                      className="absolute left-0 right-0 mb-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-2xl overflow-y-auto"
+                      style={{ zIndex: 9999, maxHeight: '240px', bottom: '100%' }}
+                    >
                       {filteredVerifierOptions.length === 0 ? (
-                        <p className="text-xs text-gray-400 text-center py-4">
-                          {availableVerifiers.length === 0
-                            ? 'No verifiers in database'
-                            : 'No matches — all verifiers added or search has no results'}
+                        <p className="text-xs text-gray-400 text-center py-6">
+                          {availableVerifiers.length === 0 ? 'No verifiers in database' : 'No matches found'}
                         </p>
                       ) : (
-                        filteredVerifierOptions.map((v) => (
-                          <button
-                            key={v.id}
-                            type="button"
-                            onMouseDown={() => addVerifier(v)}
-                            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
-                          >
-                            <div>
-                              <p className="text-sm font-medium text-gray-800 dark:text-white">{v.userName}</p>
-                              <p className="text-xs text-gray-400">{v.role} · {v.department}</p>
-                            </div>
-                            <Plus size={13} className="text-gray-400 flex-shrink-0" />
-                          </button>
-                        ))
+                        <>
+                          <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
+                            <p className="text-xs text-gray-400">
+                              {filteredVerifierOptions.length} verifier{filteredVerifierOptions.length !== 1 ? 's' : ''} found
+                            </p>
+                          </div>
+                          {filteredVerifierOptions.map((v) => (
+                            <button
+                              key={v.id}
+                              type="button"
+                              onMouseDown={(e) => { e.preventDefault(); addVerifier(v); }}
+                              className="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors text-left border-b border-gray-50 dark:border-gray-700/50 last:border-0"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className="w-8 h-8 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0"
+                                  style={{ background: `hsl(${v.userName.charCodeAt(0) * 17 % 360}, 55%, 40%)` }}
+                                >
+                                  {v.userName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-800 dark:text-white">{v.userName}</p>
+                                  <p className="text-xs text-gray-400">{v.role} · {v.department}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 text-xs text-[#1E3A8A] dark:text-blue-400 font-medium flex-shrink-0">
+                                <Plus size={12} /> Add
+                              </div>
+                            </button>
+                          ))}
+                        </>
                       )}
                     </div>
                   )}
-                </>
+                </div>
               )}
 
               {availableVerifiers.length > 0 && addedVerifierIds.size === availableVerifiers.length && (
@@ -579,22 +615,11 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
           </div>
 
           {/* ── Publish button ── */}
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className={styles.publishBtn}
-          >
+          <button type="button" onClick={handleSave} disabled={saving} className={styles.publishBtn}>
             {saving ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                {mode === 'edit' ? 'Saving...' : 'Publishing...'}
-              </>
+              <><Loader2 size={16} className="animate-spin" />{mode === 'edit' ? 'Saving...' : 'Publishing...'}</>
             ) : (
-              <>
-                <FileText size={16} />
-                {mode === 'edit' ? 'Save Form Changes' : 'Publish Form'}
-              </>
+              <><FileText size={16} />{mode === 'edit' ? 'Save Form Changes' : 'Publish Form'}</>
             )}
           </button>
         </div>
@@ -628,34 +653,31 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
               <div className="space-y-3">
                 {fields.map((field, index) => (
                   <div key={field.id} className={`group ${styles.fieldCard}`}>
-                    {/* Hover controls */}
                     <div className="absolute top-2 right-2 hidden group-hover:flex items-center gap-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-1 shadow-sm">
-                      <button type="button" onClick={() => moveField(index, 'up')} disabled={index === 0} className="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-white disabled:opacity-30 transition-colors cursor-pointer">
+                      <button type="button" onClick={() => moveField(index, 'up')} disabled={index === 0}
+                        className="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-white disabled:opacity-30 transition-colors cursor-pointer">
                         <ChevronUp size={13} />
                       </button>
-                      <button type="button" onClick={() => moveField(index, 'down')} disabled={index === fields.length - 1} className="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-white disabled:opacity-30 transition-colors cursor-pointer">
+                      <button type="button" onClick={() => moveField(index, 'down')} disabled={index === fields.length - 1}
+                        className="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-white disabled:opacity-30 transition-colors cursor-pointer">
                         <ChevronDown size={13} />
                       </button>
                       <div className="w-px h-3 bg-gray-200 dark:bg-gray-600 mx-0.5" />
-                      <button type="button" onClick={() => removeField(field.id)} className="p-0.5 text-gray-400 hover:text-red-500 transition-colors cursor-pointer">
+                      <button type="button" onClick={() => removeField(field.id)}
+                        className="p-0.5 text-gray-400 hover:text-red-500 transition-colors cursor-pointer">
                         <Trash2 size={13} />
                       </button>
                     </div>
-
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-50 cursor-grab transition-opacity">
                       <GripVertical size={14} className="text-gray-400" />
                     </div>
-
                     <div className="ml-4">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <div className={styles.fieldBadge}>
-                          {fieldIcons[field.type]} {field.type}
-                        </div>
+                        <div className={styles.fieldBadge}>{fieldIcons[field.type]} {field.type}</div>
                         <span className="text-sm font-medium text-gray-800 dark:text-white">{field.label}</span>
                         {field.required && <span className="text-red-500 text-xs">*</span>}
                         {field.isCustom && <span className={styles.customTag}>custom</span>}
                       </div>
-
                       {field.type === 'textarea' ? (
                         <textarea placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}...`} className={styles.input} readOnly />
                       ) : field.type === 'file' ? (
@@ -668,20 +690,13 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
                         <div className="flex flex-wrap gap-1.5">
                           {field.options.map((opt, i) => (
                             <span key={i} className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
-                              {field.type === 'checkbox'
-                                ? <CheckSquare size={11} className="text-gray-400" />
-                                : <Circle size={11} className="text-gray-400" />}
+                              {field.type === 'checkbox' ? <CheckSquare size={11} className="text-gray-400" /> : <Circle size={11} className="text-gray-400" />}
                               {opt}
                             </span>
                           ))}
                         </div>
                       ) : (
-                        <input
-                          type={field.type}
-                          placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}...`}
-                          className={styles.input}
-                          readOnly
-                        />
+                        <input type={field.type} placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}...`} className={styles.input} readOnly />
                       )}
                     </div>
                   </div>

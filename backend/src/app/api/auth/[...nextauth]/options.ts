@@ -1,76 +1,87 @@
-import { NextAuthOptions } from "next-auth";
-import NextAuth from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
+import { NextAuthOptions } from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
 
 export const authOptions: NextAuthOptions = {
-    providers: [
-        GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID!,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        }),
-    ],
+  providers: [
+    GoogleProvider({
+      clientId:     process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+  ],
 
-    callbacks: {
-        async signIn({ user, account }) {
-            if (account?.provider !== 'google') return false;
+  callbacks: {
 
-            try {
-                // Admin portal only — check verifier table
-                const verifier = await prisma.verifier.findFirst({
-                    where: { email: user.email! },
-                });
+    // ── signIn ────────────────────────────────────────────────────────
+    async signIn({ user }) {
+      try {
+        if (!user.email) return false;
 
-                if (!verifier || verifier.role !== 'Admin') {
-                    console.error('[signIn] Not a registered admin:', user.email);
-                    return false;
-                }
+        // Check if they are an Admin in the Verifier table
+        const isAdmin = await prisma.verifier.findUnique({
+          where:  { email: user.email },
+          select: { id: true },
+        });
 
-                // Attach to user object so jwt() can persist it
-                user.id = verifier.id;
-                user.userName = verifier.userName;
-                user.role = verifier.role;
-                (user as any).portal = 'admin';
+        // Admin exists → allow through, no DB write needed
+        if (isAdmin) return true;
 
-                return true;
+        // Not an admin → upsert into User table
+        await prisma.user.upsert({
+          where:  { email: user.email },
+          update: { userName: user.name ?? "Unknown" },
+          create: {
+            userName: user.name  ?? "Unknown",
+            email:    user.email,
+          },
+        });
 
-            } catch (error) {
-                console.error('[signIn] Error:', error);
-                return false;
-            }
-        },
+        return true;
 
-        async jwt({ token, user, account }) {
-            // Only runs on first sign in
-            if (account && user) {
-                token.id = user.id;
-                token.userName = user.userName;
-                token.email = user.email;
-                token.role = user.role;
-                token.portal = (user as any).portal ?? 'admin';
-            }
-            return token;
-        },
-
-        async session({ session, token }) {
-            if (token) {
-                session.user.id = token.id;
-                session.user.userName = token.userName;
-                session.user.email = token.email;
-                session.user.role = token.role;
-                session.user.portal = token.portal;
-            }
-            return session;
-        },
+      } catch (error) {
+        console.error("[NextAuth signIn]", error);
+        return false;
+      }
     },
 
-    pages: {
-        signIn: '/login',
-        error: '/login',
+    // ── jwt ───────────────────────────────────────────────────────────
+    async jwt({ token, user: oauthUser }) {
+      if (oauthUser?.email) {
+        const verifier = await prisma.verifier.findUnique({
+          where:  { email: oauthUser.email },
+          select: { id: true, role: true },
+        });
+
+        if (verifier) {
+          token.id   = verifier.id;
+          token.role = verifier.role;   // "Admin" | "HOD" | "Dean" etc.
+        } else {
+          const dbUser = await prisma.user.findUnique({
+            where:  { email: oauthUser.email },
+            select: { id: true },
+          });
+          token.id   = dbUser?.id;
+          token.role = "User";
+        }
+      }
+      return token;
     },
-    session: { strategy: 'jwt' },
-    secret: process.env.NEXTAUTH_SECRET,
+
+    // ── session ───────────────────────────────────────────────────────
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id   = token.id   as string;
+        session.user.role = token.role as string;
+      }
+      return session;
+    },
+  },
+
+  pages: {
+    signIn: "/auth/signin",
+  },
+
+  session: {
+    strategy: "jwt",
+  },
 };
-
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };

@@ -61,10 +61,10 @@ export async function POST(req: NextRequest) {
             // 1. Create the verifier
             const verifier = await tx.verifier.create({
                 data: {
-                    userName:   memberName,
+                    userName: memberName,
                     email,
                     mobileNo,
-                    role:       role as Role,
+                    role: role as Role,
                     department,
                 },
             });
@@ -72,24 +72,25 @@ export async function POST(req: NextRequest) {
             // 2. Save audit log
             await tx.auditLog.create({
                 data: {
-                    action:         LogAction.VERIFIER_CREATED,
-                    entity:         "Verifier",
-                    entityId:       verifier.id,
-                    actorType:      ActorType.User,
-                    actorUserId:    session.user.id,
+                    action: LogAction.VERIFIER_CREATED,
+                    entity: "Verifier",
+                    entityId: verifier.id,
+                    actorType: ActorType.User,       // change to Verifier
+                    actorVerifierId: session.user.id,       // ✅ admin is a Verifier
+                    actorUserId: null,                  // ✅ not a User
                     diff: {
                         before: null,
                         after: {
-                            userName:   verifier.userName,
-                            email:      verifier.email,
-                            mobileNo:   verifier.mobileNo,
-                            role:       verifier.role,
+                            userName: verifier.userName,
+                            email: verifier.email,
+                            mobileNo: verifier.mobileNo,
+                            role: verifier.role,
                             department: verifier.department,
                         },
                     },
                     meta: {
-                        ip:         req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown",
-                        userAgent:  req.headers.get("user-agent") ?? "unknown",
+                        ip: req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown",
+                        userAgent: req.headers.get("user-agent") ?? "unknown",
                         adminEmail: session.user.email,
                     },
                 },

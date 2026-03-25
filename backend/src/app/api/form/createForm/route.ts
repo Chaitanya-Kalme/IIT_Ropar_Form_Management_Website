@@ -6,7 +6,7 @@ import { ActorType, LogAction } from "../../../../../generated/prisma/enums";
 
 const allowedTypes = [
     "text", "number", "date", "file", "checkbox",
-    "radio", "select", "textarea", "email", "phone"
+    "radio", "select", "textarea", "email", "tel",  // ← "phone" → "tel"
 ];
 
 const isValidField = (field: any) => {
@@ -151,12 +151,13 @@ export async function POST(req: NextRequest) {
             // 3. Save audit log
             await tx.auditLog.create({
                 data: {
-                    action:         LogAction.FORM_CREATED,
-                    entity:         "Form",
-                    entityId:       String(form.id),
-                    actorType:      ActorType.User,
-                    actorUserId:    session.user.id,        // admin's User id
-                    formId:         form.id,
+                    action:             LogAction.FORM_CREATED,
+                    entity:             "Form",
+                    entityId:           String(form.id),
+                    actorType:          ActorType.Verifier,   // ✅ admin is a Verifier
+                    actorVerifierId:    session.user.id,       // ✅ FK to Verifier table
+                    actorUserId:        null,                  // ✅ not a User
+                    formId:             form.id,
                     diff: {
                         before: null,
                         after: {
@@ -165,12 +166,12 @@ export async function POST(req: NextRequest) {
                             deadline:    form.deadline,
                             formStatus:  form.formStatus,
                             formFields:  form.formFields,
-                            verifiers:   verifiers,         // levels snapshot
+                            verifiers:   verifiers,
                         },
                     },
                     meta: {
-                        ip:        req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown",
-                        userAgent: req.headers.get("user-agent") ?? "unknown",
+                        ip:         req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown",
+                        userAgent:  req.headers.get("user-agent") ?? "unknown",
                         adminEmail: session.user.email,
                     },
                 },
@@ -195,7 +196,7 @@ export async function POST(req: NextRequest) {
         }, { status: 201 });
 
     } catch (error: any) {
-        console.error("[POST /api/forms]", error);
+        console.error("[POST /api/forms/createForm]", error);
         return NextResponse.json({
             success: false,
             message: error.message ?? "Internal server error.",
