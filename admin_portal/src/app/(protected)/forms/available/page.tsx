@@ -71,6 +71,7 @@ export default function AvailableFormsPage() {
       if (search) params.set('search', search);
 
       const { data } = await axios.get(`/api/form/getAllForms?${params.toString()}`);
+      console.log(data.data)
       setForms(data.data);
       setMeta(data.meta);
     } catch (err) {

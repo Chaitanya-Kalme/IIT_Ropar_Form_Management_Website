@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { cookies, headers } from 'next/headers';
 import {
   ArrowUpRight, Calendar, CheckCircle, Clock,
   Edit2, FileText, Layers3, Users, XCircle,
@@ -13,6 +14,7 @@ interface Verifier {
   userName:   string;
   role:       string;
   department: string;
+  mobileNo:   string;
 }
 
 interface VerifierLevel {
@@ -71,14 +73,28 @@ const getInitials = (name: string) =>
 
 async function getForm(formId: string): Promise<FormData | null> {
   try {
-    const baseUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
-    const res = await fetch(`${baseUrl}/api/forms/getForm/${formId}`, {
+    // ✅ Must use absolute URL in server components
+    const baseUrl = process.env.BACKEND_URL ?? 'http://localhost:3000';
+
+    // ✅ Forward cookies so NextAuth session is available in the API route
+    const cookieStore = await cookies();
+    const cookieHeader = cookieStore.toString();
+
+    const res = await fetch(`${baseUrl}/api/form/getForm/${formId}`, {
       cache: 'no-store',
+      headers: {
+        'Cookie': cookieHeader,
+        'Content-Type': 'application/json',
+      },
     });
+
     if (!res.ok) return null;
+
     const json = await res.json();
     return json.success ? json.data : null;
-  } catch {
+
+  } catch (error) {
+    console.error('[getForm]', error);
     return null;
   }
 }
@@ -202,9 +218,7 @@ export default async function FormDashboardPage({
               <FileText size={18} />
               <div>
                 <span className={styles.infoLabel}>Status</span>
-                <strong
-                  style={{ color: form.formStatus ? '#16A34A' : '#6B7280' }}
-                >
+                <strong style={{ color: form.formStatus ? '#16A34A' : '#6B7280' }}>
                   {form.formStatus ? 'Active' : 'Draft'}
                 </strong>
               </div>
@@ -268,9 +282,7 @@ export default async function FormDashboardPage({
         <div className={styles.tableHeader}>
           <div>
             <h3 className={styles.chartTitle}>Recent Submissions</h3>
-            <p className={styles.chartSubtitle}>
-              Latest 5 submissions for this form
-            </p>
+            <p className={styles.chartSubtitle}>Latest 5 submissions for this form</p>
           </div>
           <Link
             href={`/forms/all?formId=${form.id}`}
@@ -284,14 +296,7 @@ export default async function FormDashboardPage({
           <table className={styles.table}>
             <thead>
               <tr>
-                {[
-                  'Applicant',
-                  'Submitted On',
-                  'Email',
-                  'Current Level',
-                  'Status',
-                  'Action',
-                ].map((h) => (
+                {['Applicant', 'Submitted On', 'Email', 'Current Level', 'Status', 'Action'].map((h) => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -337,9 +342,7 @@ export default async function FormDashboardPage({
 
                     {/* Status */}
                     <td>
-                      <span
-                        className={`${styles.statusBadge} ${statusBadge(submission.overallStatus)}`}
-                      >
+                      <span className={`${styles.statusBadge} ${statusBadge(submission.overallStatus)}`}>
                         {submission.overallStatus}
                       </span>
                     </td>
