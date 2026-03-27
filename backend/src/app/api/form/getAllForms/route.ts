@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = req.nextUrl;
 
     // ── Pagination ────────────────────────────────────────────────────
-    const page  = parseInt(searchParams.get("page")  ?? "1");
+    const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "10");
 
     if (isNaN(page) || page < 1) {
@@ -36,21 +36,21 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Filters ───────────────────────────────────────────────────────
-    const search      = searchParams.get("search")    ?? undefined;
-    const sortOrder   = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
+    const search = searchParams.get("search") ?? undefined;
+    const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
     const formStatusParam = searchParams.get("formStatus");
 
     // formStatus: "true" → active, "false" → draft, absent → all
     const formStatus =
-      formStatusParam === "true"  ? true  :
-      formStatusParam === "false" ? false :
-      undefined;
+      formStatusParam === "true" ? true :
+        formStatusParam === "false" ? false :
+          undefined;
 
     // ── Date range ────────────────────────────────────────────────────
     const fromParam = searchParams.get("from");
-    const toParam   = searchParams.get("to");
-    const from      = fromParam ? new Date(fromParam) : undefined;
-    const to        = toParam   ? new Date(toParam)   : undefined;
+    const toParam = searchParams.get("to");
+    const from = fromParam ? new Date(fromParam) : undefined;
+    const to = toParam ? new Date(toParam) : undefined;
 
     if (from && isNaN(from.getTime())) {
       return NextResponse.json({
@@ -78,14 +78,14 @@ export async function GET(req: NextRequest) {
       ...(formStatus !== undefined && { formStatus }),
       ...(search && {
         OR: [
-          { title:       { contains: search, mode: "insensitive" as const } },
+          { title: { contains: search, mode: "insensitive" as const } },
           { description: { contains: search, mode: "insensitive" as const } },
         ],
       }),
       ...((from || to) && {
         createdAt: {
           ...(from && { gte: from }),
-          ...(to   && { lte: to   }),
+          ...(to && { lte: to }),
         },
       }),
     };
@@ -100,13 +100,13 @@ export async function GET(req: NextRequest) {
         take: limit,
         orderBy: { createdAt: sortOrder },
         select: {
-          id:          true,
-          title:       true,
+          id: true,
+          title: true,
           description: true,
-          deadline:    true,
-          formStatus:  true,
-          createdAt:   true,
-          updatedAt:   true,
+          deadline: true,
+          formStatus: true,
+          createdAt: true,
+          updatedAt: true,
           _count: {
             select: { formSubmissions: true },
           },
@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
         total,
         page,
         limit,
-        totalPages:  Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit),
         hasNextPage: page * limit < total,
         hasPrevPage: page > 1,
       },
