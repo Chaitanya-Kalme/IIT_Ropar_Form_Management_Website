@@ -1,50 +1,39 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  type ReactNode,
+} from "react";
+import { useSession, signOut } from "next-auth/react";
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  user: { name: string; email: string } | null;
-  login: (email: string, password: string) => Promise<void>;
+  user: { name: string; email: string; role: string } | null;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return sessionStorage.getItem("auth") === "true";
-    }
-    return false;
-  });
+  const { data: session, status } = useSession();
 
-  const [user, setUser] = useState<{ name: string; email: string } | null>(() => {
-    if (typeof window !== "undefined") {
-      const stored = sessionStorage.getItem("user");
-      return stored ? JSON.parse(stored) : null;
-    }
-    return null;
-  });
+  const isAuthenticated = status === "authenticated";
 
-  const login = async (email: string, _password: string) => {
-    // In production, call real API
-    setIsAuthenticated(true);
-    const u = { name: "Dr. Rajesh Kumar", email };
-    setUser(u);
-    sessionStorage.setItem("auth", "true");
-    sessionStorage.setItem("user", JSON.stringify(u));
-  };
+  const user = session?.user
+    ? {
+      name: session.user.name ?? "Unknown",
+      email: session.user.email ?? "",
+      role: session.user.role ?? "User",   // injected by your jwt callback
+    }
+    : null;
 
   const logout = () => {
-    setIsAuthenticated(false);
-    setUser(null);
-    sessionStorage.removeItem("auth");
-    sessionStorage.removeItem("user");
+    signOut({ callbackUrl: "/auth/signin" });
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, logout }}>
       {children}
     </AuthContext.Provider>
   );
