@@ -55,6 +55,7 @@ export const authOptions: NextAuthOptions = {
         if (verifier) {
           token.id   = verifier.id;
           token.role = verifier.role;   // "Admin" | "HOD" | "Dean" etc.
+          token.portal = verifier.role==="Admin"? "admin": "verifier"
         } else {
           const dbUser = await prisma.user.findUnique({
             where:  { email: oauthUser.email },
@@ -62,6 +63,7 @@ export const authOptions: NextAuthOptions = {
           });
           token.id   = dbUser?.id;
           token.role = "User";
+          token.portal = "user"
         }
       }
       return token;
@@ -72,6 +74,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id   = token.id   as string;
         session.user.role = token.role as string;
+        session.user.portal = token.portal as string
       }
       return session;
     },

@@ -19,27 +19,27 @@ type FormFieldType =
   | 'radio' | 'select' | 'textarea' | 'email' | 'tel';
 
 interface FormField {
-  id:           string;
-  label:        string;
-  type:         FormFieldType;
-  required:     boolean;
+  id: string;
+  label: string;
+  type: FormFieldType;
+  required: boolean;
   placeholder?: string;
-  options?:     string[];
-  isCustom?:    boolean;
+  options?: string[];
+  isCustom?: boolean;
 }
 
 interface VerifierLevel {
-  id:         string;   // local UI id only
+  id: string;   // local UI id only
   verifierId: string;   // real DB Verifier.id (uuid)
-  name:       string;
-  role:       string;
+  name: string;
+  role: string;
 }
 
 interface ApiVerifier {
-  id:         string;
-  userName:   string;
-  email:      string;
-  role:       string;
+  id: string;
+  userName: string;
+  email: string;
+  role: string;
   department: string;
 }
 
@@ -48,39 +48,39 @@ interface ApiVerifier {
 const QUICK_FIELDS: {
   label: string; type: FormFieldType; icon: React.ReactNode; placeholder?: string;
 }[] = [
-  { label: 'Name',        type: 'text',     icon: <FileText size={14} />, placeholder: 'Enter full name'     },
-  { label: 'Age',         type: 'number',   icon: <Hash size={14} />,     placeholder: 'Enter age'           },
-  { label: 'Mobile',      type: 'tel',      icon: <Phone size={14} />,    placeholder: 'Enter mobile number' },
-  { label: 'Email',       type: 'email',    icon: <Mail size={14} />,     placeholder: 'Enter email address' },
-  { label: 'Address',     type: 'textarea', icon: <MapPin size={14} />,   placeholder: 'Enter full address'  },
-  { label: 'Department',  type: 'text',     icon: <Building size={14} />, placeholder: 'Enter department'    },
-  { label: 'Roll Number', type: 'text',     icon: <BookOpen size={14} />, placeholder: 'Enter roll number'   },
-];
+    { label: 'Name', type: 'text', icon: <FileText size={14} />, placeholder: 'Enter full name' },
+    { label: 'Age', type: 'number', icon: <Hash size={14} />, placeholder: 'Enter age' },
+    { label: 'Mobile', type: 'tel', icon: <Phone size={14} />, placeholder: 'Enter mobile number' },
+    { label: 'Email', type: 'email', icon: <Mail size={14} />, placeholder: 'Enter email address' },
+    { label: 'Address', type: 'textarea', icon: <MapPin size={14} />, placeholder: 'Enter full address' },
+    { label: 'Department', type: 'text', icon: <Building size={14} />, placeholder: 'Enter department' },
+    { label: 'Roll Number', type: 'text', icon: <BookOpen size={14} />, placeholder: 'Enter roll number' },
+  ];
 
 const fieldTypeOptions: { value: FormFieldType; label: string; icon: React.ReactNode }[] = [
-  { value: 'text',     label: 'Text',              icon: <Type size={14} />        },
-  { value: 'number',   label: 'Number',            icon: <Hash size={14} />        },
-  { value: 'date',     label: 'Date',              icon: <Calendar size={14} />    },
-  { value: 'file',     label: 'File Upload',       icon: <Upload size={14} />      },
-  { value: 'checkbox', label: 'Checkbox',          icon: <CheckSquare size={14} /> },
-  { value: 'radio',    label: 'Radio',             icon: <Circle size={14} />      },
-  { value: 'select',   label: 'Select / Dropdown', icon: <List size={14} />        },
-  { value: 'textarea', label: 'Textarea',          icon: <AlignLeft size={14} />   },
-  { value: 'email',    label: 'Email',             icon: <Mail size={14} />        },
-  { value: 'tel',      label: 'Phone',             icon: <Phone size={14} />       },
+  { value: 'text', label: 'Text', icon: <Type size={14} /> },
+  { value: 'number', label: 'Number', icon: <Hash size={14} /> },
+  { value: 'date', label: 'Date', icon: <Calendar size={14} /> },
+  { value: 'file', label: 'File Upload', icon: <Upload size={14} /> },
+  { value: 'checkbox', label: 'Checkbox', icon: <CheckSquare size={14} /> },
+  { value: 'radio', label: 'Radio', icon: <Circle size={14} /> },
+  { value: 'select', label: 'Select / Dropdown', icon: <List size={14} /> },
+  { value: 'textarea', label: 'Textarea', icon: <AlignLeft size={14} /> },
+  { value: 'email', label: 'Email', icon: <Mail size={14} /> },
+  { value: 'tel', label: 'Phone', icon: <Phone size={14} /> },
 ];
 
 const fieldIcons: Record<FormFieldType, React.ReactNode> = {
-  text:     <Type size={12} />,
-  number:   <Hash size={12} />,
-  date:     <Calendar size={12} />,
-  file:     <Upload size={12} />,
+  text: <Type size={12} />,
+  number: <Hash size={12} />,
+  date: <Calendar size={12} />,
+  file: <Upload size={12} />,
   checkbox: <CheckSquare size={12} />,
-  radio:    <Circle size={12} />,
-  select:   <List size={12} />,
+  radio: <Circle size={12} />,
+  select: <List size={12} />,
   textarea: <AlignLeft size={12} />,
-  email:    <Mail size={12} />,
-  tel:      <Phone size={12} />,
+  email: <Mail size={12} />,
+  tel: <Phone size={12} />,
 };
 
 function generateId() {
@@ -90,16 +90,16 @@ function generateId() {
 // ─── CustomFieldForm ──────────────────────────────────────────────────────────
 
 interface CustomFieldFormProps {
-  onAdd:    (field: FormField) => void;
+  onAdd: (field: FormField) => void;
   onCancel: () => void;
 }
 
 function CustomFieldForm({ onAdd, onCancel }: CustomFieldFormProps) {
-  const [label,     setLabel]     = useState('');
-  const [type,      setType]      = useState<FormFieldType>('text');
-  const [options,   setOptions]   = useState<string[]>([]);
+  const [label, setLabel] = useState('');
+  const [type, setType] = useState<FormFieldType>('text');
+  const [options, setOptions] = useState<string[]>([]);
   const [newOption, setNewOption] = useState('');
-  const [required,  setRequired]  = useState(false);
+  const [required, setRequired] = useState(false);
 
   const needsOptions = ['checkbox', 'radio', 'select'].includes(type);
 
@@ -114,11 +114,11 @@ function CustomFieldForm({ onAdd, onCancel }: CustomFieldFormProps) {
     if (!label.trim()) { toast.error('Field label is required'); return; }
     if (needsOptions && options.length === 0) { toast.error('Please add at least one option'); return; }
     onAdd({
-      id:       generateId(),
-      label:    label.trim(),
+      id: generateId(),
+      label: label.trim(),
       type,
       required,
-      options:  needsOptions ? options : undefined,
+      options: needsOptions ? options : undefined,
       isCustom: true,
     });
   };
@@ -184,7 +184,7 @@ function CustomFieldForm({ onAdd, onCancel }: CustomFieldFormProps) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 interface FormBuilderPageProps {
-  mode:    'create' | 'edit';
+  mode: 'create' | 'edit';
   formId?: string;
 }
 
@@ -192,58 +192,58 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
   const router = useRouter();
 
   // ── Form state ─────────────────────────────────────────────────────
-  const [formTitle,       setFormTitle]       = useState('');
+  const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
-  const [deadline,        setDeadline]        = useState('');
-  const [isActive,        setIsActive]        = useState(true);
-  const [fields,          setFields]          = useState<FormField[]>([]);
-  const [verifiers,       setVerifiers]       = useState<VerifierLevel[]>([]);
-  const [showCustomForm,  setShowCustomForm]  = useState(false);
-  const [saving,          setSaving]          = useState(false);
+  const [deadline, setDeadline] = useState('');
+  const [isActive, setIsActive] = useState(true);
+  const [fields, setFields] = useState<FormField[]>([]);
+  const [verifiers, setVerifiers] = useState<VerifierLevel[]>([]);
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // ── Form fetch state (edit mode only) ──────────────────────────────
-  const [formLoading, setFormLoading] = useState(mode === 'edit');
-  const [formError,   setFormError]   = useState<string | null>(null);
+  const [formLoading, setFormLoading] = useState(mode === 'edit' && !!formId); // ✅ both conditions
+  const [formError, setFormError] = useState<string | null>(null);
 
   // ── Available verifiers from DB ────────────────────────────────────
-  const [availableVerifiers,   setAvailableVerifiers]   = useState<ApiVerifier[]>([]);
-  const [verifiersLoading,     setVerifiersLoading]     = useState(true);
-  const [verifiersError,       setVerifiersError]       = useState<string | null>(null);
-  const [verifierSearch,       setVerifierSearch]       = useState('');
+  const [availableVerifiers, setAvailableVerifiers] = useState<ApiVerifier[]>([]);
+  const [verifiersLoading, setVerifiersLoading] = useState(true);
+  const [verifiersError, setVerifiersError] = useState<string | null>(null);
+  const [verifierSearch, setVerifierSearch] = useState('');
   const [showVerifierDropdown, setShowVerifierDropdown] = useState(false);
 
   // ── Fetch existing form data (edit mode) ───────────────────────────
   const fetchForm = useCallback(async () => {
-    if (mode !== 'edit' || !formId) return;
+    if (mode !== 'edit' || !formId) {
+      setFormLoading(false); // ✅ always unblock the UI
+      return;
+    }
     setFormLoading(true);
     setFormError(null);
     try {
-      const { data } = await axios.get(`/api/forms/getForm/${formId}`);
+      const { data } = await axios.get(`/api/form/getForm/${formId}`);
       const form = data.data;
 
       setFormTitle(form.title);
       setFormDescription(form.description ?? '');
-      // deadline comes as ISO string — slice to YYYY-MM-DD for date input
       setDeadline(form.deadline.slice(0, 10));
       setIsActive(form.formStatus);
 
-      // Hydrate fields — assign local ids since DB fields don't have them
       const hydratedFields: FormField[] = (form.formFields as any[]).map((f: any) => ({
-        id:          generateId(),
-        label:       f.label,
-        type:        f.type as FormFieldType,
-        required:    f.required,
+        id: generateId(),
+        label: f.label,
+        type: f.type as FormFieldType,
+        required: f.required,
         placeholder: f.placeholder,
-        options:     f.options,
+        options: f.options,
       }));
       setFields(hydratedFields);
 
-      // Hydrate verifiers from verifiersList (already ordered by level asc)
       const hydratedVerifiers: VerifierLevel[] = form.verifiersList.map((vl: any) => ({
-        id:         generateId(),
+        id: generateId(),
         verifierId: vl.verifier.id,
-        name:       vl.verifier.userName,
-        role:       vl.verifier.role,
+        name: vl.verifier.userName,
+        role: vl.verifier.role,
       }));
       setVerifiers(hydratedVerifiers);
 
@@ -254,7 +254,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
       setFormError(msg);
       toast.error(msg);
     } finally {
-      setFormLoading(false);
+      setFormLoading(false); // ✅ always runs
     }
   }, [mode, formId]);
 
@@ -291,7 +291,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
   const removeField = (id: string) => setFields((prev) => prev.filter((f) => f.id !== id));
 
   const moveField = (index: number, direction: 'up' | 'down') => {
-    const next   = [...fields];
+    const next = [...fields];
     const target = direction === 'up' ? index - 1 : index + 1;
     if (target < 0 || target >= next.length) return;
     [next[index], next[target]] = [next[target], next[index]];
@@ -320,41 +320,41 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
 
   // ── Submit ─────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!formTitle.trim())      { toast.error('Form title is required');           return; }
-    if (!deadline)              { toast.error('Deadline is required');             return; }
-    if (fields.length === 0)    { toast.error('Please add at least one field');    return; }
+    if (!formTitle.trim()) { toast.error('Form title is required'); return; }
+    if (!deadline) { toast.error('Deadline is required'); return; }
+    if (fields.length === 0) { toast.error('Please add at least one field'); return; }
     if (verifiers.length === 0) { toast.error('Please add at least one verifier'); return; }
 
     const apiFields = fields.map(({ label, type, required, placeholder, options }) => ({
       label, type, required,
       ...(placeholder && { placeholder }),
-      ...(options     && { options }),
+      ...(options && { options }),
     }));
 
     const apiVerifiers = verifiers.map((v, i) => ({
       verifierId: v.verifierId,
-      level:      i + 1,
+      level: i + 1,
     }));
 
     const payload = {
-      title:       formTitle.trim(),
+      title: formTitle.trim(),
       description: formDescription.trim(),
       deadline,
-      formStatus:  isActive,
-      fields:      apiFields,
-      verifiers:   apiVerifiers,
+      formStatus: isActive,
+      fields: apiFields,
+      verifiers: apiVerifiers,
     };
 
     setSaving(true);
     try {
       if (mode === 'create') {
-        await axios.post('/api/forms/createForm', payload);
+        await axios.post('/api/form/createForm', payload);
         toast.success('Form published successfully');
         setFormTitle(''); setFormDescription(''); setDeadline('');
         setIsActive(true); setFields([]); setVerifiers([]);
         router.push('/forms');
       } else {
-        await axios.patch(`/api/form/getForm/${formId}`, payload);
+        await axios.patch(`/api/form/updateForm/${formId}`, payload); // ✅ fixed
         toast.success('Form updated successfully');
         router.push(`/forms/available/${formId}`);
       }
@@ -370,7 +370,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
 
   // ─────────────────────────────────────────────────────────────────────────────
 
-  const pageTitle    = mode === 'edit' ? 'Edit Form'    : 'Create Form';
+  const pageTitle = mode === 'edit' ? 'Edit Form' : 'Create Form';
   const pageSubtitle = mode === 'edit'
     ? 'Update the form configuration, fields, and verification flow.'
     : 'Build a new form with custom fields and a verification flow.';

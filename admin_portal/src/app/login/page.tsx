@@ -4,48 +4,54 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import {
-  Eye, EyeOff, Loader2, GraduationCap,
-  Shield, FileCheck,
+  EyeOff, Loader2, GraduationCap,
+  Shield, AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { AuthService } from '@/lib/auth.service';
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
 
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [unauthorized, setUnauthorized]   = useState(false);
 
-  // Show unauthorized toast if NextAuth returns an error
+  // ── Handle NextAuth URL errors ─────────────────────────────────────
   useEffect(() => {
     const error = searchParams.get('error');
     if (!error) return;
 
-    // Use a ref to prevent showing the same toast on re-renders
     if (error === 'AccessDenied') {
-        toast.error('Access denied. You are not a registered admin.');
+      toast.error('Access denied. You are not a registered admin.');
     } else {
-        toast.error('Authentication failed. Please try again.');
+      toast.error('Authentication failed. Please try again.');
     }
 
-    // Clear the error from URL so it doesn't re-trigger on re-render
     const url = new URL(window.location.href);
     url.searchParams.delete('error');
     window.history.replaceState({}, '', url.toString());
-}, []);
+  }, []);
 
-  // Redirect if already authenticated
+  // ── Role check after session resolves ──────────────────────────────
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (status !== 'authenticated' || !session?.user) return;
+
+    if (session.user.role === 'Admin') {
+      // ✅ Legitimate admin — redirect to dashboard
       toast.success('Welcome back, Admin!');
       router.replace('/dashboard');
+    } else {
+      // ❌ Signed in but not an admin — sign them out and show the banner
+      setUnauthorized(true);
+      signOut({ redirect: false }); // clear the session silently
     }
-  }, [status, router]);
+  }, [status, session, router]);
 
-  // Show spinner while session is resolving or redirecting
-  if (status === 'loading' || status === 'authenticated') {
+  // ── Loading / redirecting spinner ──────────────────────────────────
+  if (status === 'loading' || (status === 'authenticated' && session?.user?.role === 'Admin')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
         <Loader2 size={32} className="animate-spin text-[#1E3A8A]" />
@@ -54,6 +60,7 @@ export default function LoginPage() {
   }
 
   const handleGoogleSignIn = async () => {
+    setUnauthorized(false);
     setGoogleLoading(true);
     await AuthService.loginWithGoogle();
     setGoogleLoading(false);
@@ -61,7 +68,8 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex bg-[#F8FAFC]" style={{ fontFamily: 'Inter, sans-serif' }}>
-      {/* Left Panel */}
+
+      {/* ── Left Panel ── */}
       <div className="hidden lg:flex flex-col justify-between w-1/2 bg-[#1E3A8A] p-12 relative overflow-hidden">
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/5 rounded-full" />
@@ -93,9 +101,9 @@ export default function LoginPage() {
 
           <div className="space-y-4">
             {[
-              { icon: <Shield size={20} />, title: 'Multi-level Verification', desc: 'Caretaker → HOD → Dean approval chain' },
-              { icon: <EyeOff size={20} />, title: 'Dynamic Form Builder', desc: 'Create custom forms with drag-and-drop' },
-              { icon: <GraduationCap size={20} />, title: 'Student Management', desc: 'Unified directory for all registered users' },
+              { icon: <Shield size={20} />,         title: 'Multi-level Verification', desc: 'Caretaker → HOD → Dean approval chain'  },
+              { icon: <EyeOff size={20} />,          title: 'Dynamic Form Builder',     desc: 'Create custom forms with drag-and-drop' },
+              { icon: <GraduationCap size={20} />,   title: 'Student Management',       desc: 'Unified directory for all registered users' },
             ].map((f, i) => (
               <div key={i} className="flex items-start gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
                 <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center text-white flex-shrink-0">
@@ -117,9 +125,11 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right Panel */}
+      {/* ── Right Panel ── */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
+
+          {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-8">
             <div className="w-10 h-10 rounded-full bg-[#1E3A8A] p-1 flex items-center justify-center">
               <Image src="/logo.png" alt="IIT Ropar" width={40} height={40} className="w-full h-full object-contain bg-white rounded-full" />
@@ -138,19 +148,37 @@ export default function LoginPage() {
               <p className="text-gray-500 text-sm">Sign in to access the admin portal</p>
             </div>
 
-            {/* Show inline error banner if access was denied */}
-            {searchParams.get('error') === 'AccessDenied' && (
-              <div className="mb-5 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                <EyeOff size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
+            {/* ── Unauthorized banner (role mismatch) ── */}
+            {unauthorized && (
+              <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <AlertCircle size={16} className="text-red-500" />
+                </div>
                 <div>
-                  <p className="text-red-700 text-sm font-medium">Access Denied</p>
-                  <p className="text-red-500 text-xs mt-0.5">
+                  <p className="text-red-700 text-sm font-semibold">Not Authorized</p>
+                  <p className="text-red-500 text-xs mt-0.5 leading-relaxed">
+                    You are not authorized to access this portal. Only registered IIT Ropar admin accounts are permitted. Please contact your system administrator.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* ── NextAuth AccessDenied banner ── */}
+            {!unauthorized && searchParams.get('error') === 'AccessDenied' && (
+              <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <AlertCircle size={16} className="text-red-500" />
+                </div>
+                <div>
+                  <p className="text-red-700 text-sm font-semibold">Access Denied</p>
+                  <p className="text-red-500 text-xs mt-0.5 leading-relaxed">
                     Your Google account is not registered as an admin. Contact your system administrator.
                   </p>
                 </div>
               </div>
             )}
 
+            {/* ── Google sign-in button ── */}
             <button
               onClick={handleGoogleSignIn}
               disabled={googleLoading}

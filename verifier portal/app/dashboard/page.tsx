@@ -11,6 +11,8 @@ import {
   PieChart, Pie, Cell, Legend
 } from 'recharts';
 import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 const statCards = [
   { key: 'allSubmissions', label: 'All Submissions', value: statsData.allSubmissions, icon: FileStack, color: '#3B82F6', bg: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', darkBg: 'rgba(59,130,246,0.12)', href: '/all-submissions', trend: '+12%' },
@@ -22,13 +24,26 @@ const statCards = [
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { isLoading, currentUser } = useRequireAuth();
+
+  // Block render until session resolves — prevents flash of protected content
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 size={32} className="animate-spin text-[#1E3A8A]" />
+          <p className="text-sm text-gray-500">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <DashboardLayout>
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
-          Welcome back, <span className="gradient-text">Dr. Priya</span> 👋
+          Welcome back, <span className="gradient-text">{currentUser?.name?.split(' ')[0] ?? 'Verifier'}</span> 👋
         </h2>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
           Here's what's happening in your verification queue today.
