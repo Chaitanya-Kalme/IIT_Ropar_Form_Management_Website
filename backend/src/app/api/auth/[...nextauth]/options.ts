@@ -17,16 +17,16 @@ export const authOptions: NextAuthOptions = {
       try {
         if (!user.email) return false;
 
-        // Check if they are an Admin in the Verifier table
-        const isAdmin = await prisma.verifier.findUnique({
+        // Check if they are a Verifier/Admin
+        const isVerifier = await prisma.verifier.findUnique({
           where:  { email: user.email },
           select: { id: true },
         });
 
-        // Admin exists → allow through, no DB write needed
-        if (isAdmin) return true;
+        // Verifier exists → allow through, no User table write needed
+        if (isVerifier) return true;
 
-        // Not an admin → upsert into User table
+        // Regular user → upsert into User table
         await prisma.user.upsert({
           where:  { email: user.email },
           update: { userName: user.name ?? "Unknown" },
@@ -46,35 +46,57 @@ export const authOptions: NextAuthOptions = {
 
     // ── jwt ───────────────────────────────────────────────────────────
     async jwt({ token, user: oauthUser }) {
-      if (oauthUser?.email) {
+      // ✅ FIX: Resolve the DB identity on EVERY jwt call where token.id
+      // is missing — not just on first sign-in when oauthUser is present.
+      // This handles the race condition where token.id was never set.
+      const email = oauthUser?.email ?? token.email;
+
+      if (email && !token.id) {
+        // Check verifier table first
         const verifier = await prisma.verifier.findUnique({
-          where:  { email: oauthUser.email },
+          where:  { email },
           select: { id: true, role: true },
         });
 
         if (verifier) {
-          token.id   = verifier.id;
-          token.role = verifier.role;   // "Admin" | "HOD" | "Dean" etc.
-          token.portal = verifier.role==="Admin"? "admin": "verifier"
+          token.id     = verifier.id;
+          token.role   = verifier.role;
+          token.portal = verifier.role === "Admin" ? "admin" : "verifier";
         } else {
+          // Regular user
           const dbUser = await prisma.user.findUnique({
-            where:  { email: oauthUser.email },
+            where:  { email },
             select: { id: true },
           });
-          token.id   = dbUser?.id;
-          token.role = "User";
-          token.portal = "user"
+
+          if (!dbUser) {
+            // Edge case: user row not yet committed — create it now
+            const created = await prisma.user.create({
+              data: {
+                userName: (oauthUser?.name ?? token.name ?? "Unknown") as string,
+                email,
+              },
+              select: { id: true },
+            });
+            token.id = created.id;
+          } else {
+            token.id = dbUser.id;
+          }
+
+          token.role   = "User";
+          token.portal = "user";
         }
       }
+
       return token;
     },
 
     // ── session ───────────────────────────────────────────────────────
     async session({ session, token }) {
       if (session.user) {
-        session.user.id   = token.id   as string;
-        session.user.role = token.role as string;
-        session.user.portal = token.portal as string
+        session.user.id     = token.id     as string;
+        session.user.role   = token.role   as string;
+        session.user.portal = token.portal as string;
       }
       return session;
     },

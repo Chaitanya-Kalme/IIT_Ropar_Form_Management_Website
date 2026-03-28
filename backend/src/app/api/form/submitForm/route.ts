@@ -1,16 +1,24 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
-import { authOptions } from "../auth/[...nextauth]/options";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
+import { authOptions } from "../../auth/[...nextauth]/options";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FieldValue {
     label: string;
     value: string | boolean;
 }
+
+interface FileFieldValue {
+    label: string;
+    value: string;
+    url: string;
+}
+
+type EnrichedFieldValue = FieldValue | FileFieldValue;
 
 // ── File upload helper ────────────────────────────────────────────────────────
 async function saveFile(file: File, submissionId: string): Promise<string> {
@@ -27,7 +35,6 @@ async function saveFile(file: File, submissionId: string): Promise<string> {
 
     await writeFile(filepath, buffer);
 
-    // Return public URL path
     return `/uploads/${submissionId}/${filename}`;
 }
 
@@ -46,12 +53,33 @@ export async function POST(req: NextRequest) {
 
         const userId = session.user.id;
 
+        if (!userId) {
+            return NextResponse.json({
+                success: false,
+                message: "Session is missing user ID. Please sign in again.",
+            }, { status: 401 });
+        }
+
+        // ✅ Verify the user actually exists in the DB before doing anything else
+        const userExists = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true },
+        });
+
+        if (!userExists) {
+            console.error(`[submitForm] userId from session not found in DB: "${userId}"`);
+            return NextResponse.json({
+                success: false,
+                message: "Your session references an unknown user. Please sign out and sign in again.",
+            }, { status: 401 });
+        }
+
         // ── Parse multipart form data ────────────────────────────────────
         const formDataRaw = await req.formData();
 
         const formIdRaw = formDataRaw.get("formId");
-        const fieldsRaw = formDataRaw.get("fields");   // JSON string
-        const signatureRaw = formDataRaw.get("signature"); // File | null
+        const fieldsRaw = formDataRaw.get("fields");
+        const signatureRaw = formDataRaw.get("signature");
 
         // ── Validate inputs ──────────────────────────────────────────────
         if (!formIdRaw || !fieldsRaw) {
@@ -130,7 +158,7 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        // ── Validate required fields against formFields schema ───────────
+        // ── Validate required fields ─────────────────────────────────────
         const formFields = form.formFields as Array<{
             id: string;
             label: string;
@@ -138,11 +166,28 @@ export async function POST(req: NextRequest) {
             type: string;
         }>;
 
+        const findSubmittedValue = (
+            f: { id: string; label: string },
+            index: number
+        ): string | boolean | undefined => {
+            if (fields[f.id] !== undefined) return fields[f.id].value;
+
+            const indexKey = `field-${index}`;
+            if (fields[indexKey] !== undefined) return fields[indexKey].value;
+
+            const byLabel = Object.values(fields).find(
+                (entry) => entry.label === f.label
+            );
+            return byLabel?.value;
+        };
+
         const missingRequired = formFields
             .filter((f) => f.required && f.type !== "file")
-            .filter((f) => {
-                const val = fields[f.id]?.value;
-                return val === undefined || val === null || val === "";
+            .filter((f, i) => {
+                const val = findSubmittedValue(f, i);
+                if (val === undefined || val === null) return true;
+                if (typeof val === "boolean") return false;
+                return String(val).trim() === "";
             })
             .map((f) => f.label);
 
@@ -158,7 +203,7 @@ export async function POST(req: NextRequest) {
             data: {
                 userId,
                 formId,
-                formData: fields,   // saved as-is, files added below
+                formData: fields as any,
                 currentLevel: form.verifiersList[0]?.level ?? 1,
                 overallStatus: "Pending",
             },
@@ -167,7 +212,6 @@ export async function POST(req: NextRequest) {
         // ── Handle file uploads ──────────────────────────────────────────
         const fileUrls: Record<string, string> = {};
 
-        // Collect all file fields from formData (fieldId prefixed with "file_")
         for (const [key, value] of formDataRaw.entries()) {
             if (key.startsWith("file_") && value instanceof File && value.size > 0) {
                 const fieldId = key.replace("file_", "");
@@ -176,40 +220,38 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Handle signature separately
         let signatureUrl: string | null = null;
         if (signatureRaw instanceof File && signatureRaw.size > 0) {
             signatureUrl = await saveFile(signatureRaw, submission.id);
         }
 
         // ── Merge file URLs into formData and update ─────────────────────
-        const enrichedFields: Record<string, FieldValue | { label: string; value: string; url: string }> = {
-            ...fields,
-        };
+        const enrichedFields: Record<string, EnrichedFieldValue> = { ...fields };
 
         for (const [fieldId, url] of Object.entries(fileUrls)) {
-            const matchedField = formFields.find((f) => f.id === fieldId);
+            const matchedField =
+                formFields.find((f) => f.id === fieldId) ??
+                formFields.find((_, i) => `field-${i}` === fieldId);
+
             enrichedFields[fieldId] = {
                 label: matchedField?.label ?? fieldId,
-                value: url,      // store the file URL as the value
+                value: url,
                 url,
             };
         }
 
-        // Update submission with file URLs + signature merged in
+        if (signatureUrl) {
+            enrichedFields["__signature__"] = {
+                label: "Signature",
+                value: signatureUrl,
+                url: signatureUrl,
+            };
+        }
+
         const updatedSubmission = await prisma.formSubmissions.update({
             where: { id: submission.id },
             data: {
-                formData: {
-                    ...enrichedFields,
-                    ...(signatureUrl && {
-                        __signature__: {
-                            label: "Signature",
-                            value: signatureUrl,
-                            url: signatureUrl,
-                        },
-                    }),
-                },
+                formData: enrichedFields as any,
             },
         });
 
