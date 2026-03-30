@@ -201,10 +201,10 @@ export function TopNavbar() {
       </button>
 
       <Link href="/settings" className={styles.profile}>
-        <div className={styles.avatar}>{currentUser.initials}</div>
+        <div className={styles.avatar}>{currentUser?.initials}</div>
         <div className={styles.profileText}>
-          <p className={styles.name}>{currentUser.name}</p>
-          <p className={styles.email}>{currentUser.email}</p>
+          <p className={styles.name}>{currentUser?.name}</p>
+          <p className={styles.email}>{currentUser?.email}</p>
         </div>
       </Link>
     </header>
