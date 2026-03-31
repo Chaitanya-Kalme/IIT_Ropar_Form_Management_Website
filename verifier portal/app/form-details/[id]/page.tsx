@@ -34,8 +34,8 @@ interface Field {
 }
 
 interface VerifierContext {
-  verifierId: string;
-  level: number;
+  verifierId: string | null;   // was: string
+  level: number | null;        // was: number
   isCurrentVerifier: boolean;
   isLastVerifier: boolean;
   canAct: boolean;

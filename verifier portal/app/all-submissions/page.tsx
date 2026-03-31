@@ -1,131 +1,301 @@
 'use client';
-import { useState, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import { submissions } from '@/lib/data';
-import Link from 'next/link';
-import { Search, Eye, Download, ChevronDown, X, Filter } from 'lucide-react';
-import { Suspense } from 'react';
 
-const STATUSES = ['All', 'Pending', 'Accepted', 'Rejected', 'Expired'];
-const FORM_TYPES = ['All', 'Certificate', 'Leave', 'Scholarship', 'Hostel', 'Research', 'Finance', 'Academic'];
-const DEPARTMENTS = ['All', 'CSE', 'EE', 'ME', 'CH', 'PH'];
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import Link from 'next/link';
+import {
+  Search, Eye, Download, ChevronDown, Filter,
+  Loader2, AlertTriangle, CheckCircle, XCircle, Clock, FileStack,
+} from 'lucide-react';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type DisplayStatus = 'Accepted' | 'Pending' | 'Rejected' | 'Expired';
+
+interface Submission {
+  id: string;
+  studentName: string;
+  email: string;
+  formId: number;
+  formTitle: string;
+  submissionDate: string;
+  deadline: string;
+  isExpired: boolean;
+  status: DisplayStatus;
+  overallStatus: string;
+  currentLevel: number;
+  totalLevels: number;
+  currentVerifier: string;
+  currentVerifierRole: string;
+}
+
+interface Stats {
+  total: number;
+  pending: number;
+  accepted: number;
+  rejected: number;
+  expired: number;
+}
+
+interface FormOption {
+  id: number;
+  title: string;
+}
+
+interface ApiResponse {
+  submissions: Submission[];
+  stats: Stats;
+  formOptions: FormOption[];
+}
+
+// ─── Status tab config ────────────────────────────────────────────────────────
+
+const STATUS_TABS: { label: string; key: string; color: string }[] = [
+  { label: 'All',      key: 'All',      color: '#3B82F6' },
+  { label: 'Pending',  key: 'Pending',  color: '#F59E0B' },
+  { label: 'Accepted', key: 'Accepted', color: '#22C55E' },
+  { label: 'Rejected', key: 'Rejected', color: '#EF4444' },
+  { label: 'Expired',  key: 'Expired',  color: '#94A3B8' },
+];
+
+// ─── Inner component (uses useSearchParams) ───────────────────────────────────
 
 function SubmissionsContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const initialStatus = searchParams.get('status') || 'All';
-  const initialForm = searchParams.get('form') || '';
 
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState(initialStatus);
-  const [formType, setFormType] = useState('All');
-  const [dept, setDept] = useState('All');
-  const [formSearch, setFormSearch] = useState(initialForm);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  // Initialise from URL query params (links from dashboard stat cards pass these)
+  const [status, setStatus]         = useState(searchParams.get('status') ?? 'All');
+  const [formId, setFormId]         = useState(searchParams.get('formId') ?? '');
+  const [search, setSearch]         = useState(searchParams.get('search') ?? '');
+  const [startDate, setStartDate]   = useState('');
+  const [endDate, setEndDate]       = useState('');
 
-  const filtered = useMemo(() => {
-    return submissions.filter(s => {
-      const matchSearch = !search || s.studentName.toLowerCase().includes(search.toLowerCase()) || s.rollNo.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = status === 'All' || s.status === status;
-      const matchType = formType === 'All' || s.formType === formType;
-      const matchDept = dept === 'All' || s.department === dept;
-      const matchForm = !formSearch || s.formName.toLowerCase().includes(formSearch.toLowerCase());
-      const subDate = new Date(s.submissionDate);
-      const matchStart = !startDate || subDate >= new Date(startDate);
-      const matchEnd = !endDate || subDate <= new Date(endDate);
-      return matchSearch && matchStatus && matchType && matchDept && matchForm && matchStart && matchEnd;
-    });
-  }, [submissions, search, status, formType, dept, formSearch, startDate, endDate]);
+  const [data, setData]             = useState<ApiResponse | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
 
-  const hasFilters = search || status !== 'All' || formType !== 'All' || dept !== 'All' || formSearch || startDate || endDate;
+  // ── Fetch ─────────────────────────────────────────────────────────────────
+  const fetchSubmissions = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
+      const params = new URLSearchParams();
+      if (status && status !== 'All') params.set('status', status);
+      if (formId)    params.set('formId', formId);
+      if (search)    params.set('search', search);
+      if (startDate) params.set('startDate', startDate);
+      if (endDate)   params.set('endDate', endDate);
+
+      const res = await fetch(`/api/verifier/all-submissions?${params.toString()}`);
+      if (res.status === 401) { router.push('/login'); return; }
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? 'Failed to load submissions');
+      }
+
+      setData(await res.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  }, [status, formId, search, startDate, endDate, router]);
+
+  // Debounce search + re-fetch whenever filters change
+  useEffect(() => {
+    const timer = setTimeout(() => { fetchSubmissions(); }, search ? 350 : 0);
+    return () => clearTimeout(timer);
+  }, [fetchSubmissions, search]);
+
+  // ── Export CSV ────────────────────────────────────────────────────────────
   const exportCSV = () => {
-    const csv = ['Student,Roll No,Form,Type,Dept,Date,Status,Verifier',
-      ...filtered.map(s => `${s.studentName},${s.rollNo},${s.formName},${s.formType},${s.department},${s.submissionDate},${s.status},${s.currentVerifier}`)
+    if (!data) return;
+    const csv = [
+      'Student,Email,Form,Submitted,Status,Current Verifier,Level',
+      ...data.submissions.map(s =>
+        `${s.studentName},${s.email},${s.formTitle},` +
+        `${new Date(s.submissionDate).toLocaleDateString()},` +
+        `${s.status},${s.currentVerifier},${s.currentLevel}/${s.totalLevels}`
+      ),
     ].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'submissions.csv'; a.click();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'submissions.csv'; a.click();
   };
 
+  // ── Loading ───────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-muted)' }} />
+        <span className="ml-2 text-sm" style={{ color: 'var(--text-muted)' }}>Loading submissions...</span>
+      </div>
+    );
+  }
+
+  // ── Error ─────────────────────────────────────────────────────────────────
+  if (error || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <AlertTriangle className="w-8 h-8 text-red-400" />
+        <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{error ?? 'No data found'}</p>
+        <button onClick={fetchSubmissions} className="btn-outline text-sm">Retry</button>
+      </div>
+    );
+  }
+
+  const { submissions, stats, formOptions } = data;
+  const hasFilters = search || status !== 'All' || formId || startDate || endDate;
+
+  const statCards = [
+    { key: 'total',    label: 'Total',    value: stats.total,    icon: FileStack,    color: '#3B82F6', bg: '#EFF6FF' },
+    { key: 'pending',  label: 'Pending',  value: stats.pending,  icon: Clock,        color: '#F59E0B', bg: '#FFFBEB' },
+    { key: 'accepted', label: 'Accepted', value: stats.accepted, icon: CheckCircle,  color: '#22C55E', bg: '#F0FDF4' },
+    { key: 'rejected', label: 'Rejected', value: stats.rejected, icon: XCircle,      color: '#EF4444', bg: '#FFF5F5' },
+    { key: 'expired',  label: 'Expired',  value: stats.expired,  icon: AlertTriangle,color: '#94A3B8', bg: '#F8FAFC' },
+  ];
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
+      {/* Header */}
       <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>All Submissions</h2>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{filtered.length} of {submissions.length} submissions shown</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+            {submissions.length} of {stats.total} submissions shown
+          </p>
         </div>
         <div className="export-group">
-          <button onClick={exportCSV} className="btn-outline"><Download className="w-4 h-4 text-green-500" /> Export CSV</button>
-          <button className="btn-outline"><Download className="w-4 h-4 text-red-400" /> Export PDF</button>
+          <button onClick={exportCSV} className="btn-outline">
+            <Download className="w-4 h-4 text-green-500" /> Export CSV
+          </button>
+          <button className="btn-outline">
+            <Download className="w-4 h-4 text-red-400" /> Export PDF
+          </button>
         </div>
       </div>
 
-      {/* Status tabs */}
-      <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-        {STATUSES.map(s => {
-          const counts: Record<string, number> = {
-            All: submissions.length,
-            Pending: submissions.filter(x => x.status === 'Pending').length,
-            Accepted: submissions.filter(x => x.status === 'Accepted').length,
-            Rejected: submissions.filter(x => x.status === 'Rejected').length,
-            Expired: submissions.filter(x => x.status === 'Expired').length,
-          };
-          const colors: Record<string, string> = { All: '#3B82F6', Pending: '#F59E0B', Accepted: '#22C55E', Rejected: '#EF4444', Expired: '#94A3B8' };
-          const active = status === s;
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
+        {statCards.map(({ key, label, value, icon: Icon, color, bg }) => (
+          <div
+            key={key}
+            className="content-card p-4 cursor-pointer transition-all hover:shadow-md"
+            onClick={() => setStatus(key === 'total' ? 'All' : label)}
+            style={{ outline: status === (key === 'total' ? 'All' : label) ? `2px solid ${color}` : 'none' }}
+          >
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style={{ background: bg }}>
+              <Icon className="w-4 h-4" style={{ color }} />
+            </div>
+            <p className="text-2xl font-bold" style={{ color: 'var(--text)' }}>{value}</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Status tabs + form/dept dropdowns */}
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-1 items-center">
+        {STATUS_TABS.map(({ label, key, color }) => {
+          const count = key === 'All' ? stats.total
+            : key === 'Pending'  ? stats.pending
+            : key === 'Accepted' ? stats.accepted
+            : key === 'Rejected' ? stats.rejected
+            : stats.expired;
+          const active = status === key;
           return (
-            <button key={s} onClick={() => setStatus(s)}
+            <button
+              key={key}
+              onClick={() => setStatus(key)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap"
               style={{
-                background: active ? `${colors[s]}18` : 'var(--card)',
-                color: active ? colors[s] : 'var(--text-muted)',
-                border: `1px solid ${active ? colors[s] + '40' : 'var(--border)'}`,
+                background: active ? `${color}18` : 'var(--card)',
+                color: active ? color : 'var(--text-muted)',
+                border: `1px solid ${active ? color + '40' : 'var(--border)'}`,
                 cursor: 'pointer',
-              }}>
-              {s}
-              <span className="px-1.5 py-0.5 rounded-md text-xs"
-                style={{ background: active ? colors[s] + '25' : 'var(--bg)', color: active ? colors[s] : 'var(--text-muted)' }}>
-                {counts[s]}
+              }}
+            >
+              {label}
+              <span
+                className="px-1.5 py-0.5 rounded-md text-xs"
+                style={{
+                  background: active ? color + '25' : 'var(--bg)',
+                  color: active ? color : 'var(--text-muted)',
+                }}
+              >
+                {count}
               </span>
             </button>
           );
         })}
-        <div className="relative min-w-32">
-            <select value={formType} onChange={e => setFormType(e.target.value)} className="form-input appearance-none pr-8 cursor-pointer">
-              {FORM_TYPES.map(t => <option key={t}>{t}</option>)}
+
+        {/* Form filter dropdown — populated from API */}
+        {formOptions.length > 1 && (
+          <div className="relative min-w-48 ml-auto">
+            <select
+              value={formId}
+              onChange={e => setFormId(e.target.value)}
+              className="form-input appearance-none pr-8 cursor-pointer"
+            >
+              <option value="">All Forms</option>
+              {formOptions.map(f => (
+                <option key={f.id} value={f.id}>{f.title}</option>
+              ))}
             </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+              style={{ color: 'var(--text-muted)' }} />
           </div>
-          <div className="relative min-w-28">
-            <select value={dept} onChange={e => setDept(e.target.value)} className="form-input appearance-none pr-8 cursor-pointer">
-              {DEPARTMENTS.map(d => <option key={d}>{d}</option>)}
-            </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
-          </div>
+        )}
       </div>
 
-      {/* Filters */}
+      {/* Search + date filters */}
       <div className="content-card mb-5">
-        <div className="p-4 flex flex-wrap gap-3">
-          <div className="relative flex-1 min-w-44">
-            
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search student or roll no..."
-              className="form-input pl-9" />
+        <div className="p-4 flex flex-wrap gap-3 items-end">
+          {/* Search */}
+          <div className="relative flex-1 min-w-48">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by student name or email..."
+              className="form-input pl-9"
+            />
           </div>
-          <div className="relative flex-1 min-w-44"> 
-              <div className="relative flex-1 min-w-44">
-                
-                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="form-input min-w-32" title="From date" />
-              </div>
+
+          {/* Date range */}
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+              className="form-input"
+              title="From date"
+            />
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>to</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
+              className="form-input"
+              title="To date"
+            />
           </div>
-          <div className="relative flex-1 min-w-44"> 
-              <div className="relative flex-1 min-w-44">
-                
-                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="form-input min-w-32" title="To date" />
-              </div>
-          </div>
-          
-          
+
+          {/* Clear */}
+          {hasFilters && (
+            <button
+              onClick={() => {
+                setSearch(''); setStatus('All'); setFormId('');
+                setStartDate(''); setEndDate('');
+              }}
+              className="btn-outline flex items-center gap-1.5"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -135,9 +305,8 @@ function SubmissionsContent() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Student Name</th>
-                <th>Form Name</th>
-                <th>Department</th>
+                <th>Student</th>
+                <th>Form</th>
                 <th>Submitted</th>
                 <th>Status</th>
                 <th>Current Verifier</th>
@@ -146,72 +315,92 @@ function SubmissionsContent() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {submissions.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12">
+                  <td colSpan={7} className="text-center py-12">
                     <div className="flex flex-col items-center gap-2">
                       <Filter className="w-10 h-10" style={{ color: 'var(--text-muted)' }} />
                       <p className="font-semibold" style={{ color: 'var(--text)' }}>No submissions match your filters</p>
-                      <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Try adjusting search or filters</p>
+                      <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Try adjusting your search or filters</p>
                     </div>
                   </td>
                 </tr>
-              ) : filtered.map(s => (
-                <tr key={s.id}>
-                  <td>
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                        style={{ background: `hsl(${s.studentName.charCodeAt(0) * 7},60%,50%)` }}>
-                        {s.studentName.split(' ').map(n => n[0]).join('')}
+              ) : (
+                submissions.map(s => (
+                  <tr key={s.id}>
+                    {/* Student */}
+                    <td>
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                          style={{ background: `hsl(${s.studentName.charCodeAt(0) * 7},60%,50%)` }}
+                        >
+                          {s.studentName.split(' ').map(n => n[0]).join('')}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>{s.studentName}</p>
+                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{s.email}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>{s.studentName}</p>
-                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{s.rollNo}</p>
+                    </td>
+
+                    {/* Form */}
+                    <td>
+                      <p className="font-medium text-sm" style={{ color: 'var(--text)' }}>{s.formTitle}</p>
+                    </td>
+
+                    {/* Submitted date */}
+                    <td className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                      {new Date(s.submissionDate).toLocaleDateString('en-IN', {
+                        day: '2-digit', month: 'short', year: 'numeric',
+                      })}
+                    </td>
+
+                    {/* Status badge */}
+                    <td>
+                      <span className={`badge badge-${s.status.toLowerCase()}`}>
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'currentColor' }} />
+                        {s.status}
+                      </span>
+                    </td>
+
+                    {/* Current verifier */}
+                    <td>
+                      <p className="text-sm" style={{ color: 'var(--text)' }}>{s.currentVerifier}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{s.currentVerifierRole}</p>
+                    </td>
+
+                    {/* Level */}
+                    <td>
+                      <div className="flex items-center gap-1 text-sm">
+                        <span className="font-bold" style={{ color: '#3B82F6' }}>L{s.currentLevel}</span>
+                        <span style={{ color: 'var(--text-muted)' }}>/{s.totalLevels}</span>
                       </div>
-                    </div>
-                  </td>
-                  <td>
-                    <p className="font-medium text-sm" style={{ color: 'var(--text)' }}>{s.formName}</p>
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{s.formType}</p>
-                  </td>
-                  <td>
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded-lg"
-                      style={{ background: 'var(--bg)', color: 'var(--text)' }}>
-                      {s.department}
-                    </span>
-                  </td>
-                  <td className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                    {new Date(s.submissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  </td>
-                  <td>
-                    <span className={`badge badge-${s.status.toLowerCase()}`}>
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'currentColor' }} />
-                      {s.status}
-                    </span>
-                  </td>
-                  <td className="text-sm" style={{ color: 'var(--text)' }}>{s.currentVerifier}</td>
-                  <td>
-                    <div className="flex items-center gap-1 text-sm">
-                      <span className="font-bold" style={{ color: '#3B82F6' }}>L{s.currentLevel}</span>
-                      <span style={{ color: 'var(--text-muted)' }}>/{s.totalLevels}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <Link href={`/form-details/${s.id}`}
-                      className="flex items-center gap-1.5 text-sm font-semibold"
-                      style={{ color: '#3B82F6', textDecoration: 'none' }}>
-                      <Eye className="w-3.5 h-3.5" /> View
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+
+                    {/* Action */}
+                    <td>
+                      <Link
+                        href={`/form-details/${s.id}`}
+                        className="flex items-center gap-1.5 text-sm font-semibold"
+                        style={{ color: '#3B82F6', textDecoration: 'none' }}
+                      >
+                        <Eye className="w-3.5 h-3.5" /> View
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-        {filtered.length > 0 && (
-          <div className="px-6 py-3 border-t flex items-center justify-between text-sm" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
-            <span>Showing {filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>
-            <span>Page 1 of 1</span>
+
+        {submissions.length > 0 && (
+          <div
+            className="px-6 py-3 border-t flex items-center justify-between text-sm"
+            style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+          >
+            <span>Showing {submissions.length} result{submissions.length !== 1 ? 's' : ''}</span>
           </div>
         )}
       </div>
@@ -219,10 +408,19 @@ function SubmissionsContent() {
   );
 }
 
+// ─── Page wrapper ─────────────────────────────────────────────────────────────
+
 export default function AllSubmissionsPage() {
   return (
     <DashboardLayout>
-      <Suspense fallback={<div className="flex items-center justify-center h-64" style={{ color: 'var(--text-muted)' }}>Loading submissions...</div>}>
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-muted)' }} />
+            <span className="ml-2 text-sm" style={{ color: 'var(--text-muted)' }}>Loading submissions...</span>
+          </div>
+        }
+      >
         <SubmissionsContent />
       </Suspense>
     </DashboardLayout>

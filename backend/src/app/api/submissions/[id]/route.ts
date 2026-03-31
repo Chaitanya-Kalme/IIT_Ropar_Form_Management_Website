@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import { prisma } from '@/lib/prisma';
-import { SubmissionStatus } from '../../../../../generated/prisma/enums';
+import { ActorType, LogAction, SubmissionStatus } from '../../../../../generated/prisma/enums';
 
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
@@ -151,7 +151,15 @@ export async function GET(
 
         // 6. Derive display status
         const now = new Date();
-        const isExpired = submission.form.deadline < now;
+
+        // For display: deadline passed (end of day)
+        const deadlineEndOfDay = new Date(submission.form.deadline);
+        deadlineEndOfDay.setHours(23, 59, 59, 999);
+        const isExpired = deadlineEndOfDay < now;
+
+        // For user portal: can they still submit/edit? No — deadline has passed
+        // For verifier/admin: always allowed to act regardless of deadline
+        const isFormClosedForUser = isExpired;
 
         let displayStatus: 'Accepted' | 'Pending' | 'Rejected' | 'Expired';
         if (submission.overallStatus === SubmissionStatus.Approved) {
@@ -185,6 +193,7 @@ export async function GET(
                     ? JSON.parse(rawFormFields)
                     : [];
 
+
         const formData: Record<string, string> =
             rawFormData !== null &&
                 typeof rawFormData === 'object' &&
@@ -194,9 +203,10 @@ export async function GET(
                     ? JSON.parse(rawFormData)
                     : {};
 
-        const fields = formFields.map((f) => ({
+
+        const fields = formFields.map((f, index) => ({
             label: f.label,
-            value: formData[f.name] ?? '—',
+            value: (formData[`field-${index}`] as unknown as { label: string; value: string })?.value ?? '—',
             type: f.type,
         }));
 
@@ -220,27 +230,26 @@ export async function GET(
                 description: submission.form.description,
                 deadline: submission.form.deadline,
                 isExpired,
+                isClosedForUser: isFormClosedForUser
             },
             fields,
             workflow,
             // null for regular users — frontend hides action buttons when this is null
-            verifierContext: verifierLevelEntry
-                ? {
-                    verifierId: verifierLevelEntry.verifier.id,
-                    level: verifierLevelEntry.level,
-                    isCurrentVerifier,
-                    isLastVerifier,
-                    canAct:
-                        isCurrentVerifier &&
-                        submission.overallStatus === SubmissionStatus.Pending,
-                    nextVerifier:
-                        workflow.find(
-                            (w) =>
-                                w.status === 'Pending' &&
-                                w.level > (verifierLevelEntry?.level ?? 0)
-                        ) ?? null,
-                }
-                : null,
+            // After — always return a verifierContext object, never null
+            verifierContext: {
+                verifierId: verifierLevelEntry?.verifier.id ?? null,
+                level: verifierLevelEntry?.level ?? null,
+                isCurrentVerifier: verifierLevelEntry ? isCurrentVerifier : false,
+                isLastVerifier: verifierLevelEntry ? isLastVerifier : false,
+                canAct: verifierLevelEntry
+                    ? isCurrentVerifier && submission.overallStatus === SubmissionStatus.Pending
+                    : false,
+                nextVerifier: verifierLevelEntry
+                    ? workflow.find(
+                        (w) => w.status === 'Pending' && w.level > (verifierLevelEntry.level ?? 0)
+                    ) ?? null
+                    : null,
+            },
         });
     } catch (error) {
         console.error('[SubmissionDetails GET] Error:', error);
@@ -248,15 +257,12 @@ export async function GET(
     }
 }
 
-// ─── POST /api/submissions/:id ────────────────────────────────────────────────
-// Accessible by: authorized verifier ONLY (the one whose turn it is)
-// Body: { action: 'approve' | 'reject' | 'sendback', remark?: string }
 export async function POST(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id: submissionId } = await params;
-
+ 
     // 1. Verifier-only auth
     const verifierId = await getAuthorizedVerifierId();
     if (!verifierId) {
@@ -265,24 +271,24 @@ export async function POST(
             { status: 401 }
         );
     }
-
+ 
     const body = await req.json() as { action?: string; remark?: string };
     const { action, remark } = body;
-
+ 
     if (!action || !['approve', 'reject', 'sendback'].includes(action)) {
         return NextResponse.json(
             { error: 'Invalid action. Must be approve | reject | sendback' },
             { status: 400 }
         );
     }
-
+ 
     if ((action === 'reject' || action === 'sendback') && !remark?.trim()) {
         return NextResponse.json(
             { error: 'A remark is required when rejecting or sending back' },
             { status: 400 }
         );
     }
-
+ 
     try {
         // 2. Load submission + verifier chain
         const submission = await prisma.formSubmissions.findUnique({
@@ -295,11 +301,11 @@ export async function POST(
                 },
             },
         });
-
+ 
         if (!submission) {
             return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
         }
-
+ 
         // 3. Submission must still be actionable
         if (submission.overallStatus !== SubmissionStatus.Pending) {
             return NextResponse.json(
@@ -309,19 +315,19 @@ export async function POST(
                 { status: 409 }
             );
         }
-
+ 
         // 4. Verifier must be in the chain for this specific form
         const verifierLevelEntry = submission.form.verifiersList.find(
             (vl) => vl.verifierId === verifierId
         );
-
+ 
         if (!verifierLevelEntry) {
             return NextResponse.json(
                 { error: 'Forbidden: you are not a verifier for this form' },
                 { status: 403 }
             );
         }
-
+ 
         // 5. Must be their turn
         if (verifierLevelEntry.level !== submission.currentLevel) {
             return NextResponse.json(
@@ -331,11 +337,11 @@ export async function POST(
                 { status: 403 }
             );
         }
-
+ 
         const totalLevels = submission.form.verifiersList.length;
         const isLastVerifier = verifierLevelEntry.level === totalLevels;
-
-        // 6. Apply action in a transaction
+ 
+        // 6. Apply action + write audit log in a single transaction
         await prisma.$transaction(async (tx) => {
             if (action === 'approve') {
                 await tx.verificationAction.upsert({
@@ -355,14 +361,31 @@ export async function POST(
                         remark: remark?.trim() || null,
                     },
                 });
-
+ 
                 await tx.formSubmissions.update({
                     where: { id: submissionId },
                     data: isLastVerifier
                         ? { overallStatus: SubmissionStatus.Approved }
                         : { currentLevel: submission.currentLevel + 1 },
                 });
-
+ 
+                await tx.auditLog.create({
+                    data: {
+                        action: LogAction.VERIFICATION_APPROVED,
+                        entity: 'FormSubmissions',
+                        entityId: submissionId,
+                        actorType: ActorType.Verifier,
+                        actorVerifierId: verifierId,
+                        formId: submission.formId,
+                        submissionId,
+                        meta: {
+                            level: verifierLevelEntry.level,
+                            isLastVerifier,
+                            ...(remark?.trim() ? { remark: remark.trim() } : {}),
+                        },
+                    },
+                });
+ 
             } else if (action === 'reject') {
                 await tx.verificationAction.upsert({
                     where: {
@@ -376,24 +399,39 @@ export async function POST(
                         remark: remark!.trim(),
                     },
                     update: {
-                        verifierId,                        // update in case a different verifier somehow had a row
+                        verifierId,
                         status: SubmissionStatus.Rejected,
                         remark: remark!.trim(),
                     },
                 });
-
+ 
                 await tx.formSubmissions.update({
                     where: { id: submissionId },
                     data: { overallStatus: SubmissionStatus.Rejected },
                 });
+ 
+                await tx.auditLog.create({
+                    data: {
+                        action: LogAction.VERIFICATION_REJECTED,
+                        entity: 'FormSubmissions',
+                        entityId: submissionId,
+                        actorType: ActorType.Verifier,
+                        actorVerifierId: verifierId,
+                        formId: submission.formId,
+                        submissionId,
+                        meta: {
+                            level: verifierLevelEntry.level,
+                            remark: remark!.trim(),
+                        },
+                    },
+                });
+ 
             } else if (action === 'sendback') {
-                // Reset to level 1 so the student can correct and resubmit
                 await tx.formSubmissions.update({
                     where: { id: submissionId },
                     data: { currentLevel: 1 },
                 });
-
-                // Log a remark so the timeline shows why it was sent back
+ 
                 await tx.verificationAction.upsert({
                     where: {
                         submissionId_level: { submissionId, level: verifierLevelEntry.level },
@@ -409,9 +447,25 @@ export async function POST(
                         remark: `[SENT BACK] ${remark!.trim()}`,
                     },
                 });
+ 
+                await tx.auditLog.create({
+                    data: {
+                        action: LogAction.VERIFICATION_REMARKED,
+                        entity: 'FormSubmissions',
+                        entityId: submissionId,
+                        actorType: ActorType.Verifier,
+                        actorVerifierId: verifierId,
+                        formId: submission.formId,
+                        submissionId,
+                        meta: {
+                            level: verifierLevelEntry.level,
+                            remark: remark!.trim(),
+                        },
+                    },
+                });
             }
         });
-
+ 
         return NextResponse.json({ success: true, action });
     } catch (error) {
         console.error('[SubmissionDetails POST] Error:', error);
