@@ -1,7 +1,7 @@
 import { mockApi, type FormDefinition, type Submission, type UserProfile, type Comment } from "./mockApi";
 
 // Set to true to use mock data, false when backend is ready
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 const apiGet = async (path: string) => {
   const res = await fetch(`/api${path}`);
@@ -54,7 +54,53 @@ export const formsService = {
 export const historyService = {
   getAll: async (): Promise<Submission[]> => {
     if (USE_MOCK) return mockApi.getHistory();
-    return apiGet("/history");
+    
+    try {
+      const response = await apiGet("/submissions/getMySubmissions?limit=100");
+      
+      // Transform backend response to match Submission interface
+      if (response.data && Array.isArray(response.data)) {
+        return response.data.map((submission: any) => {
+          const createdAt = new Date(submission.createdAt);
+          const submitted_date = createdAt.toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          });
+          const submitted_time = createdAt.toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+
+          // Get current authority from verification actions or form verifiers list
+          let current_authority = "Pending Review";
+          if (submission.verificationActions && submission.verificationActions.length > 0) {
+            const lastAction = submission.verificationActions[submission.verificationActions.length - 1];
+            current_authority = lastAction.verifier?.userName || "System";
+          } else if (submission.form?.verifiersList && submission.form.verifiersList.length > 0) {
+            const currentVerifier = submission.form.verifiersList.find(
+              (v: any) => v.level === submission.currentLevel
+            );
+            current_authority = currentVerifier?.verifier?.userName || "Pending Review";
+          }
+
+          return {
+            id: submission.id,
+            form_name: submission.form?.title || "Unknown Form",
+            form_id: submission.form?.id || "",
+            submitted_date,
+            submitted_time,
+            status: submission.overallStatus || "Pending",
+            current_authority,
+          };
+        });
+      }
+      
+      return [];
+    } catch (error) {
+      console.error("Error fetching user history:", error);
+      return [];
+    }
   },
 };
 
@@ -66,6 +112,20 @@ export const userService = {
 
   getProfile: async (): Promise<UserProfile> => {
     if (USE_MOCK) return mockApi.getProfile();
-    return apiGet("/user/profile");
+    
+    try {
+      const response = await apiGet("/user/profile");
+      
+      // Extract the 'data' field from the API response and return it
+      if (response.data) {
+        return response.data as UserProfile;
+      }
+      
+      // Fallback: if data is not nested, return response directly
+      return response as UserProfile;
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      throw error;
+    }
   },
 };

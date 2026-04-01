@@ -20,6 +20,8 @@ enum Role {
   Caretaker
   Dean
   Faculty
+  Assistant_Registrar
+  Mess_Manager
 }
 
 enum SubmissionStatus {
