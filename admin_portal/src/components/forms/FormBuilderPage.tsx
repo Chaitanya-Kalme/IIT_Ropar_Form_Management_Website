@@ -352,7 +352,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
         toast.success('Form published successfully');
         setFormTitle(''); setFormDescription(''); setDeadline('');
         setIsActive(true); setFields([]); setVerifiers([]);
-        router.push('/forms');
+        router.push('/dashboard');
       } else {
         await axios.patch(`/api/form/updateForm/${formId}`, payload); // ✅ fixed
         toast.success('Form updated successfully');

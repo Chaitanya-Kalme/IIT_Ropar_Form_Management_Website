@@ -5,20 +5,20 @@ import Link from 'next/link';
 import { Building, Check, Loader2, Mail, Phone, Shield, User, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 
-const roles = ['Admin', 'HOD', 'Caretaker', 'Dean', 'Faculty'] as const;
+const roles = ['Admin', 'HOD', 'Caretaker', 'Dean', 'Faculty', 'Assistant_Registrar', 'Mess_Manager'] as const;
 
 const departments = [
-  { label: 'Computer Science',       value: 'Computer_Science' },
+  { label: 'Computer Science', value: 'Computer_Science' },
   { label: 'Electrical Engineering', value: 'Electrical_Engineering' },
   { label: 'Mechanical Engineering', value: 'Mechanical_Engineering' },
-  { label: 'Civil Engineering',      value: 'Civil_Engineering' },
-  { label: 'Physics',                value: 'Physics' },
-  { label: 'Chemistry',              value: 'Chemistry' },
-  { label: 'Mathematics',            value: 'Mathematics' },
-  { label: 'Humanities',             value: 'Humanities' },
-  { label: 'Academic Affairs',       value: 'Academic_Affairs' },
-  { label: 'Administration',         value: 'Administration' },
-  { label: 'Hostel Affairs',         value: 'Hostel_Affairs' },
+  { label: 'Civil Engineering', value: 'Civil_Engineering' },
+  { label: 'Physics', value: 'Physics' },
+  { label: 'Chemistry', value: 'Chemistry' },
+  { label: 'Mathematics', value: 'Mathematics' },
+  { label: 'Humanities', value: 'Humanities' },
+  { label: 'Academic Affairs', value: 'Academic_Affairs' },
+  { label: 'Administration', value: 'Administration' },
+  { label: 'Hostel Affairs', value: 'Hostel_Affairs' },
 ] as const;
 
 interface MemberFormPageProps {
@@ -28,22 +28,22 @@ interface MemberFormPageProps {
 
 interface FormState {
   memberName: string;
-  email:      string;
-  role:       string;
+  email: string;
+  role: string;
   department: string;
-  mobileNo:   string;
+  mobileNo: string;
 }
 
 const emptyForm: FormState = {
   memberName: '',
-  email:      '',
-  role:       '',
+  email: '',
+  role: '',
   department: '',
-  mobileNo:   '',
+  mobileNo: '',
 };
 
 export function MemberFormPage({ mode, memberId }: MemberFormPageProps) {
-  const [form, setForm]     = useState<FormState>(emptyForm);
+  const [form, setForm] = useState<FormState>(emptyForm);
   const [errors, setErrors] = useState<Partial<FormState>>({});
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -58,11 +58,11 @@ export function MemberFormPage({ mode, memberId }: MemberFormPageProps) {
         if (!res.ok) throw new Error('Failed to fetch member');
         const { data } = await res.json();
         setForm({
-          memberName: data.userName   ?? '',
-          email:      data.email      ?? '',
-          role:       data.role       ?? '',
+          memberName: data.userName ?? '',
+          email: data.email ?? '',
+          role: data.role ?? '',
           department: data.department ?? '',
-          mobileNo:   data.mobileNo   ?? '',
+          mobileNo: data.mobileNo ?? '',
         });
       } catch {
         toast.error('Failed to load member details.');
@@ -105,7 +105,7 @@ export function MemberFormPage({ mode, memberId }: MemberFormPageProps) {
 
     setSaving(true);
     try {
-      const url    = mode === 'edit' && memberId
+      const url = mode === 'edit' && memberId
         ? `/api/admin/registerVerifier/${memberId}`
         : '/api/admin/registerVerifier';
       const method = mode === 'edit' ? 'PUT' : 'POST';
@@ -114,11 +114,11 @@ export function MemberFormPage({ mode, memberId }: MemberFormPageProps) {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          memberName:   form.memberName,
-          email:      form.email,
-          role:       form.role,
+          memberName: form.memberName,
+          email: form.email,
+          role: form.role,
           department: form.department,
-          mobileNo:   form.mobileNo,
+          mobileNo: form.mobileNo,
         }),
       });
 
@@ -198,11 +198,10 @@ export function MemberFormPage({ mode, memberId }: MemberFormPageProps) {
               value={form.memberName}
               onChange={e => setField('memberName', e.target.value)}
               placeholder="e.g., Dr. Suresh Kumar"
-              className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all bg-gray-50 dark:bg-gray-800 dark:text-white ${
-                errors.memberName
-                  ? 'border-red-400 focus:ring-red-200'
-                  : 'border-gray-200 dark:border-gray-600 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6]'
-              }`}
+              className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all bg-gray-50 dark:bg-gray-800 dark:text-white ${errors.memberName
+                ? 'border-red-400 focus:ring-red-200'
+                : 'border-gray-200 dark:border-gray-600 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6]'
+                }`}
             />
             {errors.memberName && <p className="text-red-500 text-xs mt-1">{errors.memberName}</p>}
           </div>
@@ -217,11 +216,10 @@ export function MemberFormPage({ mode, memberId }: MemberFormPageProps) {
               value={form.email}
               onChange={e => setField('email', e.target.value)}
               placeholder="e.g., suresh.kumar@iitrpr.ac.in"
-              className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all bg-gray-50 dark:bg-gray-800 dark:text-white ${
-                errors.email
-                  ? 'border-red-400 focus:ring-red-200'
-                  : 'border-gray-200 dark:border-gray-600 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6]'
-              }`}
+              className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all bg-gray-50 dark:bg-gray-800 dark:text-white ${errors.email
+                ? 'border-red-400 focus:ring-red-200'
+                : 'border-gray-200 dark:border-gray-600 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6]'
+                }`}
             />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
           </div>
@@ -237,11 +235,10 @@ export function MemberFormPage({ mode, memberId }: MemberFormPageProps) {
                   key={role}
                   type="button"
                   onClick={() => setField('role', role)}
-                  className={`px-4 py-2 text-sm font-medium rounded-xl border-2 transition-all ${
-                    form.role === role
-                      ? 'border-[#1E3A8A] bg-[#1E3A8A] text-white shadow-lg shadow-blue-900/20'
-                      : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-[#1E3A8A]'
-                  }`}
+                  className={`px-4 py-2 text-sm font-medium rounded-xl border-2 transition-all ${form.role === role
+                    ? 'border-[#1E3A8A] bg-[#1E3A8A] text-white shadow-lg shadow-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-[#1E3A8A]'
+                    }`}
                 >
                   {role}
                 </button>
@@ -258,11 +255,10 @@ export function MemberFormPage({ mode, memberId }: MemberFormPageProps) {
             <select
               value={form.department}
               onChange={e => setField('department', e.target.value)}
-              className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all bg-gray-50 dark:bg-gray-800 dark:text-white appearance-none ${
-                errors.department
-                  ? 'border-red-400 focus:ring-red-200'
-                  : 'border-gray-200 dark:border-gray-600 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6]'
-              }`}
+              className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all bg-gray-50 dark:bg-gray-800 dark:text-white appearance-none ${errors.department
+                ? 'border-red-400 focus:ring-red-200'
+                : 'border-gray-200 dark:border-gray-600 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6]'
+                }`}
             >
               <option value="">Select department...</option>
               {departments.map(d => (
@@ -284,11 +280,10 @@ export function MemberFormPage({ mode, memberId }: MemberFormPageProps) {
               value={form.mobileNo}
               onChange={e => setField('mobileNo', e.target.value)}
               placeholder="e.g., +91 98765 43210"
-              className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all bg-gray-50 dark:bg-gray-800 dark:text-white ${
-                errors.mobileNo
-                  ? 'border-red-400 focus:ring-red-200'
-                  : 'border-gray-200 dark:border-gray-600 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6]'
-              }`}
+              className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all bg-gray-50 dark:bg-gray-800 dark:text-white ${errors.mobileNo
+                ? 'border-red-400 focus:ring-red-200'
+                : 'border-gray-200 dark:border-gray-600 focus:ring-[#3B82F6]/30 focus:border-[#3B82F6]'
+                }`}
             />
             {errors.mobileNo && <p className="text-red-500 text-xs mt-1">{errors.mobileNo}</p>}
           </div>
@@ -298,11 +293,10 @@ export function MemberFormPage({ mode, memberId }: MemberFormPageProps) {
             <button
               onClick={handleSave}
               disabled={saving || success}
-              className={`w-full flex items-center justify-center gap-2 py-3 text-white font-semibold text-sm rounded-xl transition-all shadow-lg ${
-                success
-                  ? 'bg-green-500 shadow-green-500/20'
-                  : 'bg-[#1E3A8A] hover:bg-[#1e3a8a]/90 shadow-blue-900/20 disabled:opacity-60 disabled:cursor-not-allowed'
-              }`}
+              className={`w-full flex items-center justify-center gap-2 py-3 text-white font-semibold text-sm rounded-xl transition-all shadow-lg ${success
+                ? 'bg-green-500 shadow-green-500/20'
+                : 'bg-[#1E3A8A] hover:bg-[#1e3a8a]/90 shadow-blue-900/20 disabled:opacity-60 disabled:cursor-not-allowed'
+                }`}
             >
               {success ? (
                 <><Check size={18} className="animate-bounce" /> {mode === 'edit' ? 'Member Updated' : 'Member Registered'} Successfully!</>

@@ -2,14 +2,14 @@ import { Session } from 'next-auth';
 import { signIn, signOut } from 'next-auth/react';
 
 export interface AuthUser {
-  id:          string;
-  name:        string;
-  email:       string;
-  initials:    string;
-  role:        string;   // "HOD" | "Dean" | "Caretaker" etc.
-  portal:      string;   // always "verifier"
+  id: string;
+  name: string;
+  email: string;
+  initials: string;
+  role: string;   // "HOD" | "Dean" | "Caretaker" etc.
+  portal: string;   // always "verifier"
   department?: string;
-  avatar?:     string;
+  avatar?: string;
 }
 
 function getInitials(name: string): string {
@@ -23,7 +23,7 @@ function getInitials(name: string): string {
 
 // Roles that must never reach the verifier dashboard
 const BLOCKED_ROLES = ['user', 'admin'];
-export const VERIFIER_ROLES = ['HOD', 'Caretaker', 'Dean', 'Faculty'] as const;
+export const VERIFIER_ROLES = ['HOD', 'Caretaker', 'Dean', 'Faculty', 'Assistant_Registrar', 'Mess_Manager'] as const;
 export type VerifierRole = typeof VERIFIER_ROLES[number];
 
 export const AuthService = {
@@ -54,13 +54,13 @@ export const AuthService = {
     const resolvedName = name ?? email;
 
     return {
-      id:       id ?? `google_${email}`,
-      name:     resolvedName,
+      id: id ?? `google_${email}`,
+      name: resolvedName,
       email,
       initials: getInitials(resolvedName),
-      role:     role    ?? '',
-      portal:   portal  ?? 'verifier',
-      avatar:   image   ?? undefined,
+      role: role ?? '',
+      portal: portal ?? 'verifier',
+      avatar: image ?? undefined,
     };
   },
 
