@@ -12,21 +12,17 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
 
-    // ── signIn ────────────────────────────────────────────────────────
     async signIn({ user }) {
       try {
         if (!user.email) return false;
 
-        // Check if they are a Verifier/Admin
         const isVerifier = await prisma.verifier.findUnique({
           where:  { email: user.email },
           select: { id: true },
         });
 
-        // Verifier exists → allow through, no User table write needed
         if (isVerifier) return true;
 
-        // Regular user → upsert into User table
         await prisma.user.upsert({
           where:  { email: user.email },
           update: { userName: user.name ?? "Unknown" },
@@ -46,9 +42,6 @@ export const authOptions: NextAuthOptions = {
 
     // ── jwt ───────────────────────────────────────────────────────────
     async jwt({ token, user: oauthUser }) {
-      // ✅ FIX: Resolve the DB identity on EVERY jwt call where token.id
-      // is missing — not just on first sign-in when oauthUser is present.
-      // This handles the race condition where token.id was never set.
       const email = oauthUser?.email ?? token.email;
 
       if (email && !token.id) {
@@ -70,7 +63,6 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (!dbUser) {
-            // Edge case: user row not yet committed — create it now
             const created = await prisma.user.create({
               data: {
                 userName: (oauthUser?.name ?? token.name ?? "Unknown") as string,

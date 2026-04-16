@@ -135,17 +135,6 @@ export async function POST(req: NextRequest) {
             }, { status: 403 });
         }
 
-        // ── Check for duplicate submission ───────────────────────────────
-        const existing = await prisma.formSubmissions.findFirst({
-            where: { userId, formId },
-        });
-
-        if (existing) {
-            return NextResponse.json({
-                success: false,
-                message: "You have already submitted this form.",
-            }, { status: 409 });
-        }
 
         // ── Parse fields JSON ────────────────────────────────────────────
         let fields: Record<string, FieldValue>;

@@ -1,18 +1,46 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Search, Filter, Eye, Download, FileText } from 'lucide-react';
+import { Search, Filter, Eye, Download, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { getFormById, mockSubmissions } from '@/data/mockData';
 
-interface AllSubmittedFormsPageProps {
-  initialFormId?: string;
-  initialStatus?: string;
-  initialDate?: string;
-  initialSearch?: string;
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+interface SubmissionUser {
+  id: number;
+  userName: string;
+  email: string;
 }
+
+interface FormSubmission {
+  id: number;
+  overallStatus: string;
+  currentLevel: number;
+  createdAt: string;
+  updatedAt: string;
+  user: SubmissionUser;
+}
+
+interface FormData {
+  id: number;
+  name: string;
+  formStatus: boolean;
+  formSubmissions: FormSubmission[];
+  _count: { formSubmissions: number };
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+const normalizeStatus = (raw: string): 'Approved' | 'Pending' | 'Rejected' | string => {
+  const map: Record<string, string> = {
+    APPROVED: 'Approved',
+    PENDING: 'Pending',
+    REJECTED: 'Rejected',
+  };
+  return map[raw?.toUpperCase()] ?? raw;
+};
 
 const statusBadge = (status: string) => {
   const map: Record<string, string> = {
@@ -20,11 +48,42 @@ const statusBadge = (status: string) => {
     Pending: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
     Rejected: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
   };
-  return map[status] || 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
+  return map[status] ?? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
 };
 
+const dotColor = (status: string) => {
+  const map: Record<string, string> = {
+    Approved: 'bg-green-500',
+    Pending: 'bg-amber-500',
+    Rejected: 'bg-red-500',
+  };
+  return map[status] ?? 'bg-gray-400';
+};
+
+const formatDate = (iso: string) => {
+  const d = new Date(iso);
+  return d.toISOString().split('T')[0]; // YYYY-MM-DD
+};
+
+const initials = (name: string) =>
+  name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+// ── Component ──────────────────────────────────────────────────────────────────
+
+interface AllSubmittedFormsPageProps {
+  formId: string; // required: which form to load
+  initialStatus?: string;
+  initialDate?: string;
+  initialSearch?: string;
+}
+
 export function AllSubmittedFormsPage({
-  initialFormId = '',
+  formId,
   initialStatus = 'All',
   initialDate = '',
   initialSearch = '',
@@ -32,65 +91,129 @@ export function AllSubmittedFormsPage({
   const router = useRouter();
   const pathname = usePathname();
 
-  const [formIdFilter, setFormIdFilter] = useState(initialFormId);
+  // ── Filter state ────────────────────────────────────────────────────────────
   const [search, setSearch] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [dateFilter, setDateFilter] = useState(initialDate);
 
+  // ── Data state ──────────────────────────────────────────────────────────────
+  const [formData, setFormData] = useState<FormData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // ── Fetch ───────────────────────────────────────────────────────────────────
+  const fetchForm = useCallback(async () => {
+    // At the top of the component, before the loading state render:
+    if (!formId) {
+      return (
+        <div className="flex flex-col items-center justify-center py-24 gap-3">
+          <FileText size={32} className="text-gray-300 dark:text-gray-600" />
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+            No form selected. Provide a <code className="text-xs bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">formId</code> query parameter to view submissions.
+          </p>
+        </div>
+      );
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/form/getForm/${formId}`);
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message ?? 'Failed to fetch form.');
+      }
+      setFormData(json.data as FormData);
+    } catch (err: any) {
+      setError(err.message ?? 'Something went wrong.');
+    } finally {
+      setLoading(false);
+    }
+  }, [formId]);
+
   useEffect(() => {
-    setFormIdFilter(initialFormId);
+    fetchForm();
+  }, [fetchForm]);
+
+  // Sync initial props if they change (e.g. URL param navigation)
+  useEffect(() => {
     setSearch(initialSearch);
     setStatusFilter(initialStatus);
     setDateFilter(initialDate);
-  }, [initialDate, initialFormId, initialSearch, initialStatus]);
+  }, [initialSearch, initialStatus, initialDate]);
 
-  const filteredForm = formIdFilter ? getFormById(formIdFilter) : undefined;
-
+  // ── URL sync ────────────────────────────────────────────────────────────────
   const updateParams = (updates: Record<string, string>) => {
     const nextParams = new URLSearchParams();
-    const nextState = {
-      formId: formIdFilter,
-      search,
-      status: statusFilter,
-      date: dateFilter,
-      ...updates,
-    };
-
-    Object.entries(nextState).forEach(([key, value]) => {
-      if (!value || value === 'All') return;
-      nextParams.set(key, value);
+    const next = { search, status: statusFilter, date: dateFilter, ...updates };
+    Object.entries(next).forEach(([key, value]) => {
+      if (value && value !== 'All') nextParams.set(key, value);
     });
-
     const query = nextParams.toString();
     router.replace(query ? `${pathname}?${query}` : pathname);
   };
 
+  // ── Filtered submissions ────────────────────────────────────────────────────
   const filtered = useMemo(() => {
-    return mockSubmissions.filter((submission) => {
-      const matchesForm = !formIdFilter || submission.formId === formIdFilter;
+    if (!formData) return [];
+    return formData.formSubmissions.filter((sub) => {
+      const displayStatus = normalizeStatus(sub.overallStatus);
       const matchesSearch =
-        submission.user.toLowerCase().includes(search.toLowerCase()) ||
-        submission.formName.toLowerCase().includes(search.toLowerCase());
-      const matchesStatus = statusFilter === 'All' || submission.status === statusFilter;
-      const matchesDate = !dateFilter || submission.dateSubmitted === dateFilter;
-
-      return matchesForm && matchesSearch && matchesStatus && matchesDate;
+        sub.user.userName.toLowerCase().includes(search.toLowerCase()) ||
+        sub.user.email.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === 'All' || displayStatus === statusFilter;
+      const matchesDate = !dateFilter || formatDate(sub.createdAt) === dateFilter;
+      return matchesSearch && matchesStatus && matchesDate;
     });
-  }, [dateFilter, formIdFilter, search, statusFilter]);
+  }, [formData, search, statusFilter, dateFilter]);
 
+  // ── Export ──────────────────────────────────────────────────────────────────
   const handleExport = (format: string) => {
     toast.success(`Exporting ${filtered.length} records as ${format}...`);
   };
 
+  // ── Loading state ───────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 size={28} className="animate-spin text-[#1E3A8A]" />
+        <span className="ml-3 text-sm text-gray-500 dark:text-gray-400">Loading submissions…</span>
+      </div>
+    );
+  }
+
+  // ── Error state ─────────────────────────────────────────────────────────────
+  if (error || !formData) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-3">
+        <AlertCircle size={32} className="text-red-400" />
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          {error ?? 'Form not found.'}
+        </p>
+        <button
+          onClick={fetchForm}
+          className="px-4 py-2 text-xs font-semibold bg-[#1E3A8A] text-white rounded-lg hover:bg-[#1e3a8a]/90 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const hasActiveFilters = statusFilter !== 'All' || !!dateFilter || !!search;
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6" style={{ fontFamily: 'Inter, sans-serif' }}>
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-gray-900 dark:text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>
             All Submitted Forms
           </h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-            {filteredForm ? `${filteredForm.name} submissions` : `${mockSubmissions.length} total submissions`} - view only
+            {formData.name} — {formData._count.formSubmissions} total submission
+            {formData._count.formSubmissions !== 1 ? 's' : ''}
           </p>
         </div>
 
@@ -107,6 +230,7 @@ export function AllSubmittedFormsPage({
         </div>
       </div>
 
+      {/* Info banner */}
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-[#1E3A8A] text-white rounded-lg flex items-center justify-center flex-shrink-0">
@@ -114,23 +238,29 @@ export function AllSubmittedFormsPage({
           </div>
           <div>
             <p className="text-sm font-semibold text-[#1E3A8A] dark:text-blue-300">
-              {filteredForm ? `Filtered by ${filteredForm.name}` : 'Read-only View'}
+              Filtered by: {formData.name}
             </p>
             <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
               Admins can only view, search, filter, and export. Detail pages use dummy frontend data.
             </p>
           </div>
         </div>
-        {(filteredForm || statusFilter !== 'All' || dateFilter || search) && (
-          <Link
-            href="/forms/all"
+        {hasActiveFilters && (
+          <button
+            onClick={() => {
+              setSearch('');
+              setStatusFilter('All');
+              setDateFilter('');
+              router.replace(pathname);
+            }}
             className="px-4 py-2 rounded-lg text-xs font-semibold bg-white text-[#1E3A8A] border border-blue-200 dark:bg-gray-900 dark:border-blue-800 dark:text-blue-300"
           >
             Clear filters
-          </Link>
+          </button>
         )}
       </div>
 
+      {/* Filters */}
       <div
         className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800 flex flex-wrap gap-3 items-center"
         style={{ boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}
@@ -139,12 +269,11 @@ export function AllSubmittedFormsPage({
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by user or form name..."
+            placeholder="Search by user or email…"
             value={search}
             onChange={(e) => {
-              const value = e.target.value;
-              setSearch(value);
-              updateParams({ search: value });
+              setSearch(e.target.value);
+              updateParams({ search: e.target.value });
             }}
             className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/30 dark:text-white"
           />
@@ -154,9 +283,8 @@ export function AllSubmittedFormsPage({
           type="date"
           value={dateFilter}
           onChange={(e) => {
-            const value = e.target.value;
-            setDateFilter(value);
-            updateParams({ date: value });
+            setDateFilter(e.target.value);
+            updateParams({ date: e.target.value });
           }}
           className="px-3 py-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/30 dark:text-white"
         />
@@ -170,11 +298,10 @@ export function AllSubmittedFormsPage({
                 setStatusFilter(status);
                 updateParams({ status });
               }}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                statusFilter === status
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${statusFilter === status
                   ? 'bg-[#1E3A8A] text-white'
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               {status}
             </button>
@@ -182,6 +309,7 @@ export function AllSubmittedFormsPage({
         </div>
       </div>
 
+      {/* Table */}
       <div
         className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden"
         style={{ boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}
@@ -190,7 +318,7 @@ export function AllSubmittedFormsPage({
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
-                {['User', 'Form Name', 'Date Submitted', 'Verifier Level', 'Status', 'Actions'].map((heading) => (
+                {['User', 'Email', 'Date Submitted', 'Verifier Level', 'Status', 'Actions'].map((heading) => (
                   <th
                     key={heading}
                     className="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
@@ -202,67 +330,74 @@ export function AllSubmittedFormsPage({
             </thead>
 
             <tbody>
-              {filtered.map((submission) => (
-                <tr
-                  key={submission.id}
-                  className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-[#1E3A8A] text-white text-xs font-semibold flex items-center justify-center">
-                        {submission.user.split(' ').map((name) => name[0]).join('')}
+              {filtered.map((sub) => {
+                const displayStatus = normalizeStatus(sub.overallStatus);
+                return (
+                  <tr
+                    key={sub.id}
+                    className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
+                  >
+                    {/* User */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-[#1E3A8A] text-white text-xs font-semibold flex items-center justify-center">
+                          {initials(sub.user.userName)}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {sub.user.userName}
+                        </span>
                       </div>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">{submission.user}</span>
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="px-6 py-4">
-                    <Link href={`/forms/available/${submission.formId}`} className="flex items-center gap-2 group">
-                      <FileText size={13} className="text-gray-400 group-hover:text-[#1E3A8A] transition-colors" />
-                      <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-[#1E3A8A] dark:group-hover:text-blue-300 transition-colors">
-                        {submission.formName}
+                    {/* Email */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 group">
+                        <FileText size={13} className="text-gray-400" />
+                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                          {sub.user.email}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Date */}
+                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                      {formatDate(sub.createdAt)}
+                    </td>
+
+                    {/* Verifier Level */}
+                    <td className="px-6 py-4">
+                      <span className="text-xs bg-blue-50 dark:bg-blue-900/30 text-[#1E3A8A] dark:text-blue-400 px-2.5 py-1 rounded-full font-medium">
+                        Level {sub.currentLevel}
                       </span>
-                    </Link>
-                  </td>
+                    </td>
 
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{submission.dateSubmitted}</td>
-
-                  <td className="px-6 py-4">
-                    <span className="text-xs bg-blue-50 dark:bg-blue-900/30 text-[#1E3A8A] dark:text-blue-400 px-2.5 py-1 rounded-full font-medium">
-                      {submission.verifierLevel}
-                    </span>
-                  </td>
-
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium ${statusBadge(submission.status)}`}>
+                    {/* Status */}
+                    <td className="px-6 py-4">
                       <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          submission.status === 'Approved'
-                            ? 'bg-green-500'
-                            : submission.status === 'Pending'
-                              ? 'bg-amber-500'
-                              : 'bg-red-500'
-                        }`}
-                      />
-                      {submission.status}
-                    </span>
-                  </td>
+                        className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium ${statusBadge(displayStatus)}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${dotColor(displayStatus)}`} />
+                        {displayStatus}
+                      </span>
+                    </td>
 
-                  <td className="px-6 py-4">
-                    <Link
-                      href={`/forms/all/${submission.id}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#1E3A8A] dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 rounded-lg transition-colors font-medium"
-                    >
-                      <Eye size={12} /> View Details
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+                    {/* Actions */}
+                    <td className="px-6 py-4">
+                      <Link
+                        href={`/forms/all/${sub.id}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#1E3A8A] dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 rounded-lg transition-colors font-medium"
+                      >
+                        <Eye size={12} /> View Details
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
 
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                    No submissions match your search criteria
+                    No submissions match your search criteria.
                   </td>
                 </tr>
               )}

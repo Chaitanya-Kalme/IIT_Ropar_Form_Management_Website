@@ -7,11 +7,12 @@ export default async function AllSubmittedFormsRoute({
 }) {
   const params = await searchParams;
 
-  const getValue = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
+  const getValue = (value: string | string[] | undefined) =>
+    Array.isArray(value) ? value[0] : value;
 
   return (
     <AllSubmittedFormsPage
-      initialFormId={getValue(params.formId) ?? ''}
+      formId={getValue(params.formId) ?? ''}
       initialStatus={getValue(params.status) ?? 'All'}
       initialDate={getValue(params.date) ?? ''}
       initialSearch={getValue(params.search) ?? ''}
