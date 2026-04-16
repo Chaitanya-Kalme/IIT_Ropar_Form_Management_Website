@@ -9,19 +9,32 @@ import type { UserProfile } from "@/lib/mockApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, FileText, Clock, CheckCircle2, LogOut, Mail, Building2, BadgeCheck } from "lucide-react";
+import { Loader2, FileText, Clock, CheckCircle2, LogOut, Mail, Building2, BadgeCheck, AlertCircle } from "lucide-react";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { logout } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    userService.getProfile().then((data) => {
-      setProfile(data);
-      setLoading(false);
-    });
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await userService.getProfile();
+        setProfile(data);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to load profile";
+        console.error("Profile fetch error:", err);
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
   }, []);
 
   const handleLogout = () => {
@@ -29,11 +42,35 @@ export default function ProfilePage() {
     router.push("/login");
   };
 
-  if (loading || !profile) {
+  if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex justify-center items-center py-32">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-indigo-600 mx-auto" />
+          <p className="text-muted-foreground">Loading profile...</p>
+        </div>
       </div>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+        <Card className="border-rose-200 bg-rose-50">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-rose-600 mt-1 flex-shrink-0" />
+              <div>
+                <p className="text-rose-700 font-semibold">{error || "Profile not found"}</p>
+                <p className="text-rose-600 text-sm mt-1">Please try again later</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Button onClick={() => router.back()} variant="outline" className="rounded-xl">
+          Go Back
+        </Button>
+      </motion.div>
     );
   }
 
@@ -42,6 +79,27 @@ export default function ProfilePage() {
     { label: "Pending", value: profile.stats.pending, icon: Clock, bg: "bg-amber-100", color: "text-amber-600" },
     { label: "Approved", value: profile.stats.approved, icon: CheckCircle2, bg: "bg-emerald-100", color: "text-emerald-600" },
   ];
+  const email = profile.email || "";
+
+// extract 4th and 5th characters (index 3,4)
+const deptCode = email.substring(4, 6).toLowerCase();
+
+const departmentMap: Record<string, string> = {
+  cs: "Computer Science",
+  ee: "Electrical",
+  me: "Mechanical",
+  ce: "Civil",
+  ch: "Chemical",
+  bt: "Biotech",
+  ai: "Artificial Intelligence",
+  mc: "mathematics & computing",
+  mm: "matallurgical and materials",
+  ep: "physics",
+  da: "digital agriculture",
+};
+
+const department =
+  departmentMap[deptCode] || "Other";
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 max-w-2xl mx-auto">
@@ -57,13 +115,13 @@ export default function ProfilePage() {
           <div className="-mt-12 flex items-end gap-4">
             <Avatar className="h-24 w-24 border-4 border-card shadow-lg">
               <AvatarFallback className="gradient-primary font-heading text-3xl font-bold text-white">
-                {profile.name.charAt(0)}
+                {profile.name?.charAt(0) ?? "U"}
               </AvatarFallback>
             </Avatar>
             <div className="pb-2">
-              <h2 className="font-heading text-xl font-bold">{profile.name}</h2>
+              <h2 className="font-heading text-xl font-bold">{profile.name || "User"}</h2>
               <p className="text-sm text-muted-foreground flex items-center gap-1">
-                <Mail className="h-3 w-3" /> {profile.email}
+                <Mail className="h-3 w-3" /> {profile.email || "—"}
               </p>
             </div>
           </div>
@@ -73,21 +131,21 @@ export default function ProfilePage() {
               <BadgeCheck className="h-5 w-5 text-indigo-600" />
               <div>
                 <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Role</p>
-                <p className="text-sm font-semibold">{profile.role}</p>
+                <p className="text-sm font-semibold">{profile.role || "—"}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-xl bg-teal-50 p-3">
               <Building2 className="h-5 w-5 text-teal-600" />
               <div>
                 <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Department</p>
-                <p className="text-sm font-semibold">{profile.department}</p>
+                <p className="text-sm font-semibold">{department || "—"}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-xl bg-amber-50 p-3">
               <FileText className="h-5 w-5 text-amber-600" />
               <div>
                 <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Emp. Code</p>
-                <p className="text-sm font-semibold">{profile.employee_code}</p>
+                <p className="text-sm font-semibold">{profile.employee_code || "—"}</p>
               </div>
             </div>
           </div>

@@ -64,7 +64,7 @@ export default function Navbar() {
         </nav>
 
         {/* Right: Profile dropdown */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 ">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 rounded-full hover:bg-white/20">
@@ -75,18 +75,18 @@ export default function Navbar() {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-48 bg-white/90 backdrop-blur-sm border border-white/30">
               <div className="px-3 py-2">
                 <p className="text-sm font-medium">{user?.name}</p>
                 <p className="text-xs text-muted-foreground">{user?.email}</p>
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push("/profile")}>
-                <User className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={() => router.push("/profile")} className="cursor-pointer text-blue-600">
+                <User className="mr-2 h-4 w-4 " />
                 My Profile
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+              <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer text-red-600">
                 <LogOut className="mr-2 h-4 w-4" />
                 Logout
               </DropdownMenuItem>

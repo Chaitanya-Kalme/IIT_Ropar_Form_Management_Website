@@ -332,15 +332,25 @@ export default function FormFillPage() {
             <ArrowLeft className="h-4 w-4" /> Back to edit
           </button>
           <div className="bg-white shadow-[0_4px_40px_rgba(0,0,0,0.08)] rounded-sm border border-[#e8dfd0]">
-            <div className="border-b border-[#e8dfd0] p-8 text-center space-y-1">
-              <div className="flex items-center justify-center gap-3 mb-3">
-                <div className="h-px flex-1 bg-[#c8b89a]" />
-                <FileText className="h-5 w-5 text-[#1a2744]" />
-                <div className="h-px flex-1 bg-[#c8b89a]" />
+            <div className="border-b border-[#e8dfd0] p-8">
+              <div className="flex items-center gap-4">
+
+                {/* Logo */}
+                <img src="/logo.png" alt="IIT Ropar Logo" className="m-5 w-24 object-contain" />
+
+                {/* Header Content */}
+                <div className="flex-1 text-center space-y-1 ">
+
+
+                  <h2 className="text-lg font-bold text-[#1a2744] font-['Playfair_Display',_serif]">
+                    Indian Institute of Technology Ropar
+                  </h2>
+                  <p className="text-sm text-[#6b5e4e]">रूपनगर, पंजाब – 140001</p>
+                  <p className="mt-2 text-base font-semibold text-[#1a1a2e] font-['Playfair_Display',_serif]">
+                    {form.title}
+                  </p>
+                </div>
               </div>
-              <h2 className="text-lg font-bold text-[#1a2744] font-['Playfair_Display',_serif]">Indian Institute of Technology Ropar</h2>
-              <p className="text-sm text-[#6b5e4e]">रूपनगर, पंजाब – 140001</p>
-              <p className="mt-2 text-base font-semibold text-[#1a1a2e] font-['Playfair_Display',_serif]">{form.title}</p>
             </div>
             <div className="p-8 space-y-5">
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -420,11 +430,29 @@ export default function FormFillPage() {
 
           {/* Letterhead */}
           <div className="bg-[#1a2744] px-8 py-7 text-center relative">
-            <div className="absolute inset-x-0 bottom-0 h-px bg-[#c8b89a] opacity-40" />
-            <h1 className="text-xl font-bold text-white font-['Playfair_Display',_serif]">Indian Institute of Technology Ropar</h1>
-            <p className="text-xs text-[#a89880] mt-1">रूपनगर, पंजाब – 140001</p>
-            <div className="mt-4 h-px bg-[#c8b89a] opacity-25 mx-12" />
-            <h2 className="mt-3 text-base font-semibold text-[#e8dfd0] font-['Playfair_Display',_serif]">{form.title}</h2>
+
+            {/* Logo (positioned without affecting layout) */}
+            <img 
+    src="/logo.png" 
+    alt="IIT Ropar Logo" 
+    className="absolute left-6 top-6  w-24 object-contain bg-white p-1 rounded-md"
+  />
+
+            <div className="absolute inset-x-0 bottom-0 h-px bg-[#c8b89a] opacity-40 align-middle" />
+
+            <h1 className="text-xl font-bold text-white font-['Playfair_Display',_serif]">
+              Indian Institute of Technology Ropar
+            </h1>
+
+            <p className="text-xs text-[#a89880] mt-1">
+              रूपनगर, पंजाब – 140001
+            </p>
+
+            <div className="mt-4 h-px bg-[#c8b89a] opacity-25 mx-24" />
+
+            <h2 className="mt-3 text-base font-semibold text-[#e8dfd0] font-['Playfair_Display',_serif]">
+              {form.title}
+            </h2>
           </div>
 
           {/* Meta bar */}
@@ -521,33 +549,33 @@ export default function FormFillPage() {
               <div className="flex-1 h-px bg-[#e8dfd0]" />
             </div>
             <div className="max-w-lg">
-            <div className="flex gap-2 mb-4">
-              {(["draw", "upload"] as const).map((mode) => (
-                <button key={mode} onClick={() => setSignatureMode(mode)} disabled={isLocked}
-                  className={`px-4 py-1.5 text-xs rounded border transition-colors ${signatureMode === mode ? "bg-[#1a2744] border-[#1a2744] text-white" : "border-[#c8b89a] text-[#6b5e4e] hover:border-[#1a2744] hover:text-[#1a2744]"} disabled:opacity-40`}>
-                  {mode === "draw" ? "Draw" : "Upload"}
-                </button>
-              ))}
-            </div>
-            <AnimatePresence mode="wait">
-              {signatureMode === "draw" && (
-                <motion.div key="draw" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-                  <canvas ref={canvasRef} width={500} height={140}
-                    className="w-full rounded border-2 border-dashed border-[#c8b89a] bg-[#faf7f2] cursor-crosshair"
-                    onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw} />
-                  <button onClick={clearCanvas} className="mt-2 text-xs text-[#a89880] hover:text-rose-500 transition-colors">Clear</button>
-                </motion.div>
-              )}
-              {signatureMode === "upload" && (
-                <motion.div key="upload" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-                  <label className="flex items-center gap-3 border-2 border-dashed border-[#c8b89a] rounded px-4 py-3 cursor-pointer hover:border-[#1a2744] transition-colors">
-                    <Upload className="h-4 w-4 text-[#a89880]" />
-                    <span className="text-sm text-[#a89880]">{signatureFile ? signatureFile.name : "Upload signature image (.png, .jpg)"}</span>
-                    <input type="file" accept=".png,.jpg,.jpeg" className="sr-only" onChange={(e) => setSignatureFile(e.target.files?.[0] || null)} />
-                  </label>
-                </motion.div>
-              )}
-            </AnimatePresence>
+              <div className="flex gap-2 mb-4">
+                {(["draw", "upload"] as const).map((mode) => (
+                  <button key={mode} onClick={() => setSignatureMode(mode)} disabled={isLocked}
+                    className={`px-4 py-1.5 text-xs rounded border transition-colors ${signatureMode === mode ? "bg-[#1a2744] border-[#1a2744] text-white" : "border-[#c8b89a] text-[#6b5e4e] hover:border-[#1a2744] hover:text-[#1a2744]"} disabled:opacity-40`}>
+                    {mode === "draw" ? "Draw" : "Upload"}
+                  </button>
+                ))}
+              </div>
+              <AnimatePresence mode="wait">
+                {signatureMode === "draw" && (
+                  <motion.div key="draw" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+                    <canvas ref={canvasRef} width={500} height={140}
+                      className="w-full rounded border-2 border-dashed border-[#c8b89a] bg-[#faf7f2] cursor-crosshair"
+                      onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw} />
+                    <button onClick={clearCanvas} className="mt-2 text-xs text-[#a89880] hover:text-rose-500 transition-colors">Clear</button>
+                  </motion.div>
+                )}
+                {signatureMode === "upload" && (
+                  <motion.div key="upload" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+                    <label className="flex items-center gap-3 border-2 border-dashed border-[#c8b89a] rounded px-4 py-3 cursor-pointer hover:border-[#1a2744] transition-colors">
+                      <Upload className="h-4 w-4 text-[#a89880]" />
+                      <span className="text-sm text-[#a89880]">{signatureFile ? signatureFile.name : "Upload signature image (.png, .jpg)"}</span>
+                      <input type="file" accept=".png,.jpg,.jpeg" className="sr-only" onChange={(e) => setSignatureFile(e.target.files?.[0] || null)} />
+                    </label>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -561,7 +589,7 @@ export default function FormFillPage() {
               className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#1a2744] text-[#f5f0e8] text-sm rounded hover:bg-[#243660] active:bg-[#111d38] transition-colors disabled:opacity-40">
               {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting…</>
                 : isLocked ? "Form Closed"
-                : <><Send className="h-4 w-4" /> Submit Application</>}
+                  : <><Send className="h-4 w-4" /> Submit Application</>}
             </button>
           </div>
         </motion.div>
