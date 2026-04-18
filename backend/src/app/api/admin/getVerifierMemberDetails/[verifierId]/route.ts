@@ -3,16 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 
 
-type RouteContext = {
-  params: {
-    verifierId: string;
-  };
-};
-
-
-export async function GET(req: NextRequest,context: RouteContext){
+export async function GET(req: NextRequest,{ params }: { params: Promise<{ verifierId: string }> }){
     try {
-        const { verifierId } = context.params;
+        const { verifierId } = await params;
 
         // Check that verifier exist in database. 
         const verifier = await prisma.verifier.findFirst({

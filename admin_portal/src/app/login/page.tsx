@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -11,7 +11,8 @@ import { toast } from 'sonner';
 import { useSession, signOut } from 'next-auth/react';
 import { AuthService } from '@/lib/auth.service';
 
-export default function LoginPage() {
+// ── Inner component that uses useSearchParams ──────────────────────────
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
@@ -40,13 +41,11 @@ export default function LoginPage() {
     if (status !== 'authenticated' || !session?.user) return;
 
     if (session.user.role === 'Admin') {
-      // ✅ Legitimate admin — redirect to dashboard
       toast.success('Welcome back, Admin!');
       router.replace('/dashboard');
     } else {
-      // ❌ Signed in but not an admin — sign them out and show the banner
       setUnauthorized(true);
-      signOut({ redirect: false }); // clear the session silently
+      signOut({ redirect: false });
     }
   }, [status, session, router]);
 
@@ -206,5 +205,18 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Page export wraps LoginContent in Suspense ─────────────────────────
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+        <Loader2 size={32} className="animate-spin text-[#1E3A8A]" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
