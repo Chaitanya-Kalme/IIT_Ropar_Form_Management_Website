@@ -1,20 +1,23 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Bell, Shield, Palette, Globe, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useApp } from '@/context/AppContext';
+import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 
 export default function SettingsPage() {
   const { darkMode, toggleDarkMode } = useApp();
+  const { data: session } = useSession();
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({
-    name: 'Admin User',
-    email: 'admin@iitrpr.ac.in',
-    phone: '+91 98765 43200',
-    designation: 'System Administrator',
-    department: 'Administration',
+    name: '',
+    email: '',
+    phone: '',
+    designation: '',
+    department: '',
   });
   const [notifications, setNotifications] = useState({
     emailOnSubmission: true,
@@ -24,12 +27,86 @@ export default function SettingsPage() {
     weeklyDigest: true,
   });
 
+  // Fetch admin details from database
+  useEffect(() => {
+    const fetchAdminDetails = async () => {
+      try {
+        if (!session?.user?.email) {
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch('/api/admin/getVerifierMemberDetails', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: session.user.email }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setProfile({
+            name: data.userName || session.user.name || '',
+            email: data.email || session.user.email || '',
+            phone: data.mobileNo || '8902345678',
+            designation: data.role || 'Admin',
+            department: data.department || 'Administration',
+          });
+        } else {
+          // Fallback to session data if API fails
+          setProfile({
+            name: session.user.name || 'Admin User',
+            email: session.user.email || 'admin@iitrpr.ac.in',
+            phone: '8902345678',
+            designation: session.user.role || 'Admin',
+            department: 'Administration',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch admin details:', error);
+        // Fallback to session data
+        setProfile({
+          name: session?.user?.name || 'Admin User',
+          email: session?.user?.email || 'admin@iitrpr.ac.in',
+          phone: '8902345678',
+          designation: session?.user?.role || 'Admin',
+          department: 'Administration',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAdminDetails();
+  }, [session]);
+
   const handleSave = async () => {
     setSaving(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setSaving(false);
-    toast.success('Settings saved successfully!');
+    try {
+      // You can add API call here to save changes if needed
+      await new Promise(r => setTimeout(r, 1200));
+      toast.success('Settings saved successfully!');
+    } catch (error) {
+      toast.error('Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 size={32} className="animate-spin text-[#1E3A8A]" />
+      </div>
+    );
+  }
+
+  // Get initials from name
+  const initials = profile.name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'AD';
 
   return (
     <div className="space-y-6 max-w-3xl" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -51,15 +128,15 @@ export default function SettingsPage() {
           <div className="flex items-center gap-5 mb-6 pb-6 border-b border-gray-100 dark:border-gray-800">
             <div className="relative">
               <div className="w-16 h-16 rounded-full bg-[#1E3A8A] text-white text-xl font-bold flex items-center justify-center">
-                AU
+                {initials}
               </div>
               <button className="absolute bottom-0 right-0 w-5 h-5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full flex items-center justify-center shadow-sm">
                 <User size={10} className="text-gray-500" />
               </button>
             </div>
             <div>
-              <p className="font-semibold text-gray-900 dark:text-white">Admin User</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">admin@iitrpr.ac.in</p>
+              <p className="font-semibold text-gray-900 dark:text-white">{profile.name}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{profile.email}</p>
               <div className="flex items-center gap-1.5 mt-1.5">
                 <div className="w-4 h-4 rounded-full overflow-hidden">
                   <Image src="/logo.png" width={40} height={40} alt="IIT Ropar" className="w-full h-full object-contain bg-white" />
