@@ -78,6 +78,13 @@ export async function GET() {
             };
         }
 
+        if(!userId){
+            return NextResponse.json({
+                success: false,
+                message: "User does not exist"
+            },{status: 400})
+        }
+
         // ── Build response ────────────────────────────────────────────────
         return NextResponse.json({
             success: true,
