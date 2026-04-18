@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
-  ArrowLeft, FileText, Mail, ShieldCheck, User,
+  ArrowLeft, FileText, Mail, User,
   Clock, CheckCircle2, XCircle, AlertTriangle, ChevronRight,
 } from 'lucide-react';
 import { cookies, headers } from 'next/headers';
@@ -33,7 +33,7 @@ interface SubmissionDetailResponse {
     overallStatus: string;
     currentLevel: number;
     totalLevels: number;
-    submissionDate: string;
+    submissionDate: string; // ISO from createdAt
   };
   student: {
     id: string;
@@ -87,21 +87,22 @@ const formatDate = (iso: string) =>
     day: '2-digit', month: 'short', year: 'numeric',
   });
 
-// ── Data fetch (server-side, cookies forwarded for session) ────────────────────
+// ── Data fetch ─────────────────────────────────────────────────────────────────
+// Note: your route is /api/submissions/[id] — submissionId maps to [id]
 
 async function getSubmissionDetails(
   submissionId: string,
 ): Promise<SubmissionDetailResponse | null> {
   try {
     const cookieStore = await cookies();
-    const headerStore  = await headers();
+    const headerStore = await headers();
 
     const res = await fetch(
-      `${process.env.NEXTAUTH_URL}/api/submissions/${submissionId}`,
+      `/api/submissions/${submissionId}`,
       {
         cache: 'no-store',
         headers: {
-          Cookie: cookieStore.toString(),
+          Cookie:            cookieStore.toString(),
           'x-forwarded-for': headerStore.get('x-forwarded-for') ?? '',
         },
       },
@@ -124,6 +125,8 @@ export default async function SubmissionDetailsPage({
   const { submissionId } = await params;
   const data = await getSubmissionDetails(submissionId);
 
+  console.log("done")
+
   if (!data) notFound();
 
   const { submission, student, form, fields, workflow } = data;
@@ -136,7 +139,7 @@ export default async function SubmissionDetailsPage({
         <div>
           <Link
             href="/forms/all"
-            className="inline-flex items-center gap-2 text-sm font-medium text-[#1E3A8A] dark:text-blue-400 mb-3"
+            className="inline-flex items-center gap-2 text-sm font-medium text-[#1E3A8A] dark:text-blue-400 mb-3 hover:underline"
           >
             <ArrowLeft size={16} />
             Back to all submitted forms
@@ -149,11 +152,13 @@ export default async function SubmissionDetailsPage({
           </p>
         </div>
 
+        {/* Overall status badge */}
         <span
           className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold ${statusStyles[submission.status]}`}
         >
           {statusIcon[submission.status]}
-          {submission.status}
+          {/* Map internal status back to display label */}
+          {submission.status === 'Accepted' ? 'Approved' : submission.status}
         </span>
       </div>
 
@@ -165,9 +170,17 @@ export default async function SubmissionDetailsPage({
         </div>
       )}
 
+      {/* ── Closed banner ── */}
+      {form.isClosedForUser && !form.isExpired && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl text-sm text-red-700 dark:text-red-300">
+          <XCircle size={16} className="shrink-0" />
+          This form is currently closed and not accepting new submissions.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* ── Left column: summary ── */}
+        {/* ── Left column ── */}
         <div className="lg:col-span-1 space-y-6">
 
           {/* Summary card */}
@@ -194,6 +207,7 @@ export default async function SubmissionDetailsPage({
             <div className="pt-3 border-t border-gray-100 dark:border-gray-800 space-y-2 text-sm text-gray-600 dark:text-gray-400">
               <p>
                 <strong className="text-gray-900 dark:text-white">Submitted:</strong>{' '}
+                {/* API returns createdAt directly as submissionDate */}
                 {formatDate(submission.submissionDate)}
               </p>
               <p>
@@ -204,67 +218,80 @@ export default async function SubmissionDetailsPage({
                 <strong className="text-gray-900 dark:text-white">Verifier Level:</strong>{' '}
                 {submission.currentLevel} / {submission.totalLevels}
               </p>
+              <p>
+                <strong className="text-gray-900 dark:text-white">Overall Status:</strong>{' '}
+                {/* overallStatus comes as the raw enum: Approved | Pending | Rejected */}
+                <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ml-1 ${statusStyles[submission.status]}`}>
+                  {submission.overallStatus}
+                </span>
+              </p>
             </div>
           </div>
 
-          {/* Workflow timeline card */}
+          {/* Workflow timeline */}
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-5">
               Verification Workflow
             </h2>
 
-            <ol className="relative space-y-0">
-              {workflow.map((step, idx) => (
-                <li key={step.level} className="flex gap-4">
-                  {/* Spine */}
-                  <div className="flex flex-col items-center">
-                    <span
-                      className={`w-3 h-3 rounded-full mt-1 shrink-0 ${workflowDot[step.status]}`}
-                    />
-                    {idx < workflow.length - 1 && (
-                      <span className="w-px flex-1 bg-gray-100 dark:bg-gray-800 my-1" />
-                    )}
-                  </div>
+            {workflow.length === 0 ? (
+              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">
+                No verifiers assigned to this form.
+              </p>
+            ) : (
+              <ol className="relative space-y-0">
+                {workflow.map((step, idx) => (
+                  <li key={step.level} className="flex gap-4">
+                    {/* Spine */}
+                    <div className="flex flex-col items-center">
+                      <span
+                        className={`w-3 h-3 rounded-full mt-1 shrink-0 ${workflowDot[step.status]}`}
+                      />
+                      {idx < workflow.length - 1 && (
+                        <span className="w-px flex-1 bg-gray-100 dark:bg-gray-800 my-1" />
+                      )}
+                    </div>
 
-                  {/* Content */}
-                  <div className="pb-5">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white leading-tight">
-                      {step.verifierName}
-                    </p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                      {step.role}
-                      {step.department ? ` · ${step.department}` : ''}
-                    </p>
-
-                    {step.status === 'Completed' && (
-                      <span className="inline-flex items-center gap-1 mt-1.5 text-xs font-medium text-green-600 dark:text-green-400">
-                        <CheckCircle2 size={11} />
-                        {step.actionStatus === 'Approved' ? 'Approved' : step.actionStatus}
-                        {step.date ? ` · ${formatDate(step.date)}` : ''}
-                      </span>
-                    )}
-
-                    {step.status === 'Current' && (
-                      <span className="inline-flex items-center gap-1 mt-1.5 text-xs font-medium text-amber-500">
-                        <Clock size={11} /> Awaiting action
-                      </span>
-                    )}
-
-                    {step.status === 'Pending' && (
-                      <span className="inline-flex items-center gap-1 mt-1.5 text-xs text-gray-400">
-                        <ChevronRight size={11} /> Not yet reached
-                      </span>
-                    )}
-
-                    {step.remark && (
-                      <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 italic">
-                        "{step.remark}"
+                    {/* Content */}
+                    <div className="pb-5">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white leading-tight">
+                        {step.verifierName}
                       </p>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ol>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                        {step.role}{step.department ? ` · ${step.department}` : ''}
+                      </p>
+
+                      {step.status === 'Completed' && (
+                        <span className="inline-flex items-center gap-1 mt-1.5 text-xs font-medium text-green-600 dark:text-green-400">
+                          <CheckCircle2 size={11} />
+                          {/* actionStatus is the raw SubmissionStatus enum value */}
+                          {step.actionStatus ?? 'Approved'}
+                          {step.date ? ` · ${formatDate(step.date)}` : ''}
+                        </span>
+                      )}
+
+                      {step.status === 'Current' && (
+                        <span className="inline-flex items-center gap-1 mt-1.5 text-xs font-medium text-amber-500">
+                          <Clock size={11} /> Awaiting action
+                        </span>
+                      )}
+
+                      {step.status === 'Pending' && (
+                        <span className="inline-flex items-center gap-1 mt-1.5 text-xs text-gray-400">
+                          <ChevronRight size={11} /> Not yet reached
+                        </span>
+                      )}
+
+                      {step.remark && (
+                        <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 italic">
+                          "{step.remark}"
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
         </div>
 
@@ -281,7 +308,7 @@ export default async function SubmissionDetailsPage({
             </div>
             <Link
               href={`/forms/available/${form.id}`}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-[#1E3A8A] dark:bg-blue-900/30 dark:text-blue-300 text-sm font-semibold"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-[#1E3A8A] dark:bg-blue-900/30 dark:text-blue-300 text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
             >
               Open Form Dashboard
             </Link>
@@ -292,16 +319,16 @@ export default async function SubmissionDetailsPage({
               No fields found for this submission.
             </p>
           ) : (
-            <div className="space-y-4">
-              {fields.map((field) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {fields.map((field, idx) => (
                 <div
-                  key={field.label}
+                  key={`${field.label}-${idx}`}
                   className="rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/40 p-4"
                 >
-                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 font-medium">
                     {field.label}
                   </p>
-                  <p className="text-sm text-gray-900 dark:text-white">
+                  <p className="text-sm text-gray-900 dark:text-white break-words">
                     {field.value || '—'}
                   </p>
                 </div>

@@ -33,7 +33,6 @@ export const AuthService = {
         if (!session?.user?.email) return null;
 
         const { id, name, email, image, role, portal } = session.user;
-        console.log(session)
 
         // Hard block only if portal is explicitly set to something other than admin
         // undefined means still hydrating — allow through

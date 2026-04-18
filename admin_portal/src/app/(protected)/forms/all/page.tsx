@@ -1,3 +1,5 @@
+// app/(protected)/forms/all/page.tsx
+
 import { AllSubmittedFormsPage } from '@/components/forms/AllSubmittedFormsPage';
 
 export default async function AllSubmittedFormsRoute({
@@ -12,7 +14,7 @@ export default async function AllSubmittedFormsRoute({
 
   return (
     <AllSubmittedFormsPage
-      formId={getValue(params.formId) ?? ''}
+      formId={getValue(params.formId) ?? ''}        // ← pass it through
       initialStatus={getValue(params.status) ?? 'All'}
       initialDate={getValue(params.date) ?? ''}
       initialSearch={getValue(params.search) ?? ''}
