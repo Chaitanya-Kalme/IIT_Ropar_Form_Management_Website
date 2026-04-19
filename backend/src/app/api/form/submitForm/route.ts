@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
             }, { status: 403 });
         }
 
-        if (new Date() > new Date(form.deadline)) {
+        if (form.deadline && new Date() > new Date(form.deadline)) {
             return NextResponse.json({
                 success: false,
                 message: "The deadline for this form has passed.",
