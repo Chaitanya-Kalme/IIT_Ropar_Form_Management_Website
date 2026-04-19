@@ -103,7 +103,7 @@ function DetailPanel({
 
         {/* Full details link */}
         <Link
-          href={`/form-details/${submission.id}`}
+          href={`/forms/all/${submission.id}`}
           className="flex items-center justify-center gap-2 w-full py-2 text-sm font-semibold rounded-xl transition-colors"
           style={{ background: '#EFF6FF', color: '#1E3A8A', textDecoration: 'none' }}
         >

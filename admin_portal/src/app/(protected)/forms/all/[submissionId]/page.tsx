@@ -5,6 +5,7 @@ import {
   Clock, CheckCircle2, XCircle, AlertTriangle, ChevronRight,
 } from 'lucide-react';
 import { cookies, headers } from 'next/headers';
+import axios from 'axios';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -64,56 +65,28 @@ interface SubmissionDetailResponse {
 
 const statusStyles: Record<string, string> = {
   Accepted: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  Pending:  'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  Pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   Rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  Expired:  'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  Expired: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
 };
 
 const statusIcon: Record<string, React.ReactNode> = {
   Accepted: <CheckCircle2 size={16} />,
-  Pending:  <Clock size={16} />,
+  Pending: <Clock size={16} />,
   Rejected: <XCircle size={16} />,
-  Expired:  <AlertTriangle size={16} />,
+  Expired: <AlertTriangle size={16} />,
 };
 
 const workflowDot: Record<WorkflowStep['status'], string> = {
   Completed: 'bg-green-500',
-  Current:   'bg-amber-400 ring-2 ring-amber-200 dark:ring-amber-900',
-  Pending:   'bg-gray-200 dark:bg-gray-700',
+  Current: 'bg-amber-400 ring-2 ring-amber-200 dark:ring-amber-900',
+  Pending: 'bg-gray-200 dark:bg-gray-700',
 };
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-IN', {
     day: '2-digit', month: 'short', year: 'numeric',
   });
-
-// ── Data fetch ─────────────────────────────────────────────────────────────────
-// Note: your route is /api/submissions/[id] — submissionId maps to [id]
-
-async function getSubmissionDetails(
-  submissionId: string,
-): Promise<SubmissionDetailResponse | null> {
-  try {
-    const cookieStore = await cookies();
-    const headerStore = await headers();
-
-    const res = await fetch(
-      `/api/submissions/${submissionId}`,
-      {
-        cache: 'no-store',
-        headers: {
-          Cookie:            cookieStore.toString(),
-          'x-forwarded-for': headerStore.get('x-forwarded-for') ?? '',
-        },
-      },
-    );
-
-    if (!res.ok) return null;
-    return res.json() as Promise<SubmissionDetailResponse>;
-  } catch {
-    return null;
-  }
-}
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
@@ -123,11 +96,18 @@ export default async function SubmissionDetailsPage({
   params: Promise<{ submissionId: string }>;
 }) {
   const { submissionId } = await params;
-  const data = await getSubmissionDetails(submissionId);
+  const res = await fetch(`${process.env.BACKEND_URL}/api/submissions/${submissionId}`, {
+    headers: {
+      cookie: (await cookies()).toString(),
+    },
+    cache: "no-store",
+  });
 
-  console.log("done")
+  if (!res) notFound();
 
-  if (!data) notFound();
+  const data: SubmissionDetailResponse = await res.json();
+
+
 
   const { submission, student, form, fields, workflow } = data;
 
@@ -320,24 +300,64 @@ export default async function SubmissionDetailsPage({
             </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {fields.map((field, idx) => (
-                <div
-                  key={`${field.label}-${idx}`}
-                  className="rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/40 p-4"
-                >
-                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 font-medium">
-                    {field.label}
-                  </p>
-                  <p className="text-sm text-gray-900 dark:text-white break-words">
-                    {field.value || '—'}
-                  </p>
-                </div>
-              ))}
+              {fields.map((field, idx) => {
+                const isFile = field.type === 'file';
+                const fileUrl = isFile && field.value
+                  ? `${process.env.BACKEND_URL}${field.value}`
+                  : null;
+                const fileName = field.value
+                  ? field.value.split('/').pop()
+                  : null;
+
+                return (
+                  <div
+                    key={`${field.label}-${idx}`}
+                    className="rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/40 p-4"
+                  >
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 font-medium">
+                      {field.label}
+                    </p>
+
+                    {isFile ? (
+                      fileUrl ? (
+                        <a
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline break-all transition-colors"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4 shrink-0"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                            />
+                          </svg>
+                          {field.value.split('/').pop()}
+                        </a>
+                      ) : (
+                        <p className="text-sm text-gray-400 dark:text-gray-500">—</p>
+                      )
+                    ) : (
+                      <p className="text-sm text-gray-900 dark:text-white break-words">
+                        {field.value || '—'}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
 
       </div>
-    </div>
+    </div >
   );
 }

@@ -9,9 +9,9 @@ export default async function EditMemberPage({
 }) {
   const { memberId } = await params;
 
-  if (!getMemberById(memberId)) {
-    notFound();
-  }
+  // if (!getMemberById(memberId)) {
+  //   notFound();
+  // }
 
   return <MemberFormPage mode="edit" memberId={memberId} />;
 }

@@ -7,6 +7,7 @@ export async function GET(req: NextRequest,{ params }: { params: Promise<{ verif
     try {
         const { verifierId } = await params;
 
+        console.log(verifierId)
         // Check that verifier exist in database. 
         const verifier = await prisma.verifier.findFirst({
             where:{

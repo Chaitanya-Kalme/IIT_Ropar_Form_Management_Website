@@ -54,7 +54,7 @@ export function MemberFormPage({ mode, memberId }: MemberFormPageProps) {
 
     const fetchMember = async () => {
       try {
-        const res = await fetch(`/api/admin/registerVerifier/${memberId}`);
+        const res = await fetch(`/api/admin/getVerifierMemberDetails/${memberId}`);
         if (!res.ok) throw new Error('Failed to fetch member');
         const { data } = await res.json();
         setForm({
@@ -106,7 +106,7 @@ export function MemberFormPage({ mode, memberId }: MemberFormPageProps) {
     setSaving(true);
     try {
       const url = mode === 'edit' && memberId
-        ? `/api/admin/registerVerifier/${memberId}`
+        ? `/api/admin/updateVerifier/${memberId}`
         : '/api/admin/registerVerifier';
       const method = mode === 'edit' ? 'PUT' : 'POST';
 

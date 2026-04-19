@@ -36,14 +36,14 @@ export default function SettingsPage() {
           return;
         }
 
-        const response = await fetch('/api/admin/getVerifierMemberDetails', {
-          method: 'POST',
+        const response = await fetch(`/api/admin/getVerifierMemberDetails/${session.user.id}`, {
+          method: 'GET',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: session.user.email }),
         });
 
         if (response.ok) {
-          const data = await response.json();
+          const res = await response.json();
+          const data = res.data
           setProfile({
             name: data.userName || session.user.name || '',
             email: data.email || session.user.email || '',
