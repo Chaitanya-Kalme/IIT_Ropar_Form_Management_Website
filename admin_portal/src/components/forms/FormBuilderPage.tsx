@@ -321,7 +321,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
   // ── Submit ─────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!formTitle.trim()) { toast.error('Form title is required'); return; }
-    if (!deadline) { toast.error('Deadline is required'); return; }
+
     if (fields.length === 0) { toast.error('Please add at least one field'); return; }
     if (verifiers.length === 0) { toast.error('Please add at least one verifier'); return; }
 
@@ -339,7 +339,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
     const payload = {
       title: formTitle.trim(),
       description: formDescription.trim(),
-      deadline,
+      ...(deadline && { deadline }),
       formStatus: isActive,
       fields: apiFields,
       verifiers: apiVerifiers,
@@ -478,10 +478,14 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                  Deadline <span className="text-red-500">*</span>
+                  Deadline
                 </label>
-                <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]} className={styles.input} />
+                <input
+                  type="date"
+                  value={deadline}
+                  onChange={(e) => setDeadline(e.target.value)}
+                  className={styles.input}
+                />
               </div>
               <div className="flex items-center justify-between">
                 <div>

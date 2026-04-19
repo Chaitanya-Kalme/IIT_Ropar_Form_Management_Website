@@ -4,12 +4,14 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { ActorType, LogAction, Role } from "../../../../../../generated/prisma/enums";
 
+context: { params: Promise<{ memberId: string }> }
+
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { memberId: string } }
+  context: { params: Promise<{ memberId: string }> }
 ) {
   try {
-    const { memberId } = await params;
+    const { memberId } = await context.params;
 
     // ── Auth check ───────────────────────────────────────────
     const session = await getServerSession(authOptions);

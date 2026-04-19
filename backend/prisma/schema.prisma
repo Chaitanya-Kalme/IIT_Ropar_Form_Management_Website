@@ -98,7 +98,7 @@ model Form {
   id              Int                 @id @default(autoincrement())
   title           String
   description     String
-  deadline        DateTime
+  deadline        DateTime?
   formStatus      Boolean             @default(true)
   formFields      Json
   createdAt       DateTime            @default(now())

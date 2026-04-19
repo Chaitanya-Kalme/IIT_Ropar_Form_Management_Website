@@ -55,7 +55,6 @@ export default function AvailableFormsPage() {
   const [statusFilter,  setStatusFilter]  = useState<'All' | 'Active' | 'Draft'>('All');
   const [page,          setPage]          = useState(1);
   const [openMenu,      setOpenMenu]      = useState<number | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [deleting,      setDeleting]      = useState(false);
   const [togglingId,    setTogglingId]    = useState<number | null>(null);
 
@@ -116,24 +115,6 @@ export default function AvailableFormsPage() {
     }
   };
 
-  // ── Delete form ────────────────────────────────────────────────────
-  const deleteForm = async (id: number) => {
-    setDeleting(true);
-    try {
-      await axios.delete(`/api/forms/${id}`);
-      toast.success('Form deleted successfully');
-      setDeleteConfirm(null);
-      setOpenMenu(null);
-      fetchForms();
-    } catch (err) {
-      const msg = axios.isAxiosError(err)
-        ? err.response?.data?.message ?? err.message
-        : 'Failed to delete form';
-      toast.error(msg);
-    } finally {
-      setDeleting(false);
-    }
-  };
 
   // ── Pagination page numbers ────────────────────────────────────────
   const pageNumbers = useMemo(() => {
@@ -145,7 +126,6 @@ export default function AvailableFormsPage() {
     );
   }, [meta, page]);
 
-  const deletingForm = forms.find((f) => f.id === deleteConfirm);
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -337,12 +317,6 @@ export default function AvailableFormsPage() {
                                 : <><ToggleRight size={14} className="text-green-500" /> Activate</>}
                             </button>
                             <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
-                            <button
-                              onClick={() => { setDeleteConfirm(form.id); setOpenMenu(null); }}
-                              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
-                            >
-                              <Trash2 size={14} /> Delete
-                            </button>
                           </div>
                         </>
                       )}
@@ -420,45 +394,6 @@ export default function AvailableFormsPage() {
           </div>
         </div>
       </div>
-
-      {/* ── Delete confirmation modal ── */}
-      {deleteConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backdropFilter: 'blur(4px)', background: 'rgba(0,0,0,0.4)' }}
-        >
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center mb-4">
-              <Trash2 size={22} className="text-red-500" />
-            </div>
-            <h3 className="text-gray-900 dark:text-white mb-2">Delete Form</h3>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
-              Are you sure you want to delete{' '}
-              <strong className="text-gray-700 dark:text-gray-200">"{deletingForm?.title}"</strong>?
-              This will permanently remove all associated submissions and verification records.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                disabled={deleting}
-                className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => deleteForm(deleteConfirm)}
-                disabled={deleting}
-                className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors cursor-pointer disabled:opacity-70 flex items-center justify-center gap-2"
-              >
-                {deleting
-                  ? <><Loader2 size={14} className="animate-spin" /> Deleting...</>
-                  : 'Delete Form'
-                }
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

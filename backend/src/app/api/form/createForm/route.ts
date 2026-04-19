@@ -44,10 +44,10 @@ export async function POST(req: NextRequest) {
         const { title, description, deadline, formStatus, fields, verifiers } = await req.json();
 
         // ── Basic field validation ─────────────────────────────────────────
-        if (!title || !description || !deadline || formStatus === undefined || !fields) {
+        if (!title || !description || formStatus === undefined || !fields) {
             return NextResponse.json({
                 success: false,
-                message: "title, description, deadline, formStatus and fields are all required.",
+                message: "title, description, formStatus and fields are all required.",
             }, { status: 400 });
         }
 
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        if (isNaN(Date.parse(deadline))) {
+        if (deadline && isNaN(Date.parse(deadline))) {
             return NextResponse.json({
                 success: false,
                 message: "deadline must be a valid ISO date string.",
@@ -131,47 +131,47 @@ export async function POST(req: NextRequest) {
             // 1. Create the form
             const form = await tx.form.create({
                 data: {
-                    title:       title.trim(),
+                    title: title.trim(),
                     description: description.trim(),
-                    deadline:    new Date(deadline),
-                    formStatus:  Boolean(formStatus),
-                    formFields:  fields,
+                    ...(deadline && { deadline: new Date(deadline) }),  // ← conditional
+                    formStatus: Boolean(formStatus),
+                    formFields: fields,
                 },
             });
 
             // 2. Create ordered verifier levels
             await tx.formVerifierLevel.createMany({
                 data: verifiers.map((v: any) => ({
-                    formId:     form.id,
+                    formId: form.id,
                     verifierId: v.verifierId,
-                    level:      v.level,
+                    level: v.level,
                 })),
             });
 
             // 3. Save audit log
             await tx.auditLog.create({
                 data: {
-                    action:             LogAction.FORM_CREATED,
-                    entity:             "Form",
-                    entityId:           String(form.id),
-                    actorType:          ActorType.Verifier,   // ✅ admin is a Verifier
-                    actorVerifierId:    session.user.id,       // ✅ FK to Verifier table
-                    actorUserId:        null,                  // ✅ not a User
-                    formId:             form.id,
+                    action: LogAction.FORM_CREATED,
+                    entity: "Form",
+                    entityId: String(form.id),
+                    actorType: ActorType.Verifier,   // ✅ admin is a Verifier
+                    actorVerifierId: session.user.id,       // ✅ FK to Verifier table
+                    actorUserId: null,                  // ✅ not a User
+                    formId: form.id,
                     diff: {
                         before: null,
                         after: {
-                            title:       form.title,
+                            title: form.title,
                             description: form.description,
-                            deadline:    form.deadline,
-                            formStatus:  form.formStatus,
-                            formFields:  form.formFields,
-                            verifiers:   verifiers,
+                            deadline: form.deadline,
+                            formStatus: form.formStatus,
+                            formFields: form.formFields,
+                            verifiers: verifiers,
                         },
                     },
                     meta: {
-                        ip:         req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown",
-                        userAgent:  req.headers.get("user-agent") ?? "unknown",
+                        ip: req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown",
+                        userAgent: req.headers.get("user-agent") ?? "unknown",
                         adminEmail: session.user.email,
                     },
                 },
