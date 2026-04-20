@@ -14,6 +14,8 @@ import {
   Download,
   ArrowRight,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -54,6 +56,8 @@ interface DashboardData {
   submissions: Submission[];
 }
 
+const PAGE_SIZE = 10;
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function FormDashboardPage() {
@@ -62,6 +66,7 @@ export default function FormDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (!id) return;
@@ -80,6 +85,7 @@ export default function FormDashboardPage() {
 
         const json: DashboardData = await res.json();
         setData(json);
+        setCurrentPage(1); // reset page on fresh load
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Something went wrong');
       } finally {
@@ -125,6 +131,39 @@ export default function FormDashboardPage() {
   }
 
   const { form, stats, submissions } = data;
+
+  // ── Pagination ─────────────────────────────────────────────────────────────
+  const totalPages = Math.ceil(submissions.length / PAGE_SIZE);
+  const paginated = submissions.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
+  const goToPage = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+  };
+
+  // Build page number array with ellipsis: [1, ..., 4, 5, 6, ..., 12]
+  const getPageNumbers = () => {
+    const pages: (number | '...')[] = [];
+
+    if (totalPages <= 5) {
+      // Show all if 5 or fewer total pages
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else if (currentPage <= 3) {
+      // Near start: 1 2 3 … last
+      pages.push(1, 2, 3, '...', totalPages);
+    } else if (currentPage >= totalPages - 2) {
+      // Near end: 1 … last-2 last-1 last
+      pages.push(1, '...', totalPages - 2, totalPages - 1, totalPages);
+    } else {
+      // Middle: 1 … current … last
+      pages.push(1, '...', currentPage, '...', totalPages);
+    }
+
+    return pages;
+  };
 
   // ── Stat card config ───────────────────────────────────────────────────────
   const statCards = [
@@ -188,7 +227,7 @@ export default function FormDashboardPage() {
             className="stat-card cursor-default"
             onClick={() =>
               label !== 'Total'
-                ? (window.location.href = `/all-submissions?form=${encodeURIComponent(form.title)}&status=${label}`)
+                ? (window.location.href = `/all-submissions?formId=${form.id}&status=${label}`)
                 : null
             }
           >
@@ -219,11 +258,11 @@ export default function FormDashboardPage() {
               Submissions for this Form
             </h3>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              Filtered by: {form.title}
+              {submissions.length} total · showing page {currentPage} of {totalPages || 1}
             </p>
           </div>
           <Link
-            href={`/all-submissions?form=${encodeURIComponent(form.title)}`}
+            href={`/all-submissions?formId=${form.id}`}
             className="flex items-center gap-1.5 text-sm font-semibold"
             style={{ color: '#3B82F6', textDecoration: 'none' }}
           >
@@ -243,7 +282,7 @@ export default function FormDashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {submissions.length === 0 ? (
+              {paginated.length === 0 ? (
                 <tr>
                   <td
                     colSpan={5}
@@ -254,7 +293,7 @@ export default function FormDashboardPage() {
                   </td>
                 </tr>
               ) : (
-                submissions.map((s) => (
+                paginated.map((s) => (
                   <tr key={s.id}>
                     {/* Student Name + Avatar */}
                     <td>
@@ -265,10 +304,7 @@ export default function FormDashboardPage() {
                             background: `hsl(${s.studentName.charCodeAt(0) * 7},60%,50%)`,
                           }}
                         >
-                          {s.studentName
-                            .split(' ')
-                            .map((n) => n[0])
-                            .join('')}
+                          {s.studentName.split(' ').map((n) => n[0]).join('')}
                         </div>
                         <div>
                           <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>
@@ -318,6 +354,89 @@ export default function FormDashboardPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div
+            className="px-6 py-4 border-t flex items-center justify-between flex-wrap gap-3"
+            style={{ borderColor: 'var(--border)' }}
+          >
+            {/* Result count */}
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              Showing{' '}
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>
+                {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, submissions.length)}
+              </span>{' '}
+              of{' '}
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>
+                {submissions.length}
+              </span>{' '}
+              submissions
+            </p>
+
+            {/* Page controls */}
+            <div className="flex items-center gap-1">
+              {/* Prev */}
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text)',
+                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                  opacity: currentPage === 1 ? 0.5 : 1,
+                }}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {/* Page numbers */}
+              {getPageNumbers().map((page, i) =>
+                page === '...' ? (
+                  <span
+                    key={`ellipsis-${i}`}
+                    className="w-8 h-8 flex items-center justify-center text-sm"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={page}
+                    onClick={() => goToPage(page)}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold transition-all"
+                    style={{
+                      background: currentPage === page ? '#3B82F6' : 'var(--bg)',
+                      border: `1px solid ${currentPage === page ? '#3B82F6' : 'var(--border)'}`,
+                      color: currentPage === page ? '#fff' : 'var(--text)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {page}
+                  </button>
+                )
+              )}
+
+              {/* Next */}
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text)',
+                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                  opacity: currentPage === totalPages ? 0.5 : 1,
+                }}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

@@ -34,8 +34,8 @@ interface Field {
 }
 
 interface VerifierContext {
-  verifierId: string | null;   // was: string
-  level: number | null;        // was: number
+  verifierId: string | null;
+  level: number | null;
   isCurrentVerifier: boolean;
   isLastVerifier: boolean;
   canAct: boolean;
@@ -160,8 +160,8 @@ function SendBackModal({ onClose, onSubmit, loading }: {
 
 const stageColors: Record<WorkflowStatus, { bg: string; border: string; icon: string; text: string }> = {
   Completed: { bg: '#F0FDF4', border: '#22C55E', icon: '#22C55E', text: '#065F46' },
-  Current: { bg: '#EFF6FF', border: '#3B82F6', icon: '#3B82F6', text: '#1D4ED8' },
-  Pending: { bg: 'var(--bg)', border: 'var(--border)', icon: '#94A3B8', text: 'var(--text-muted)' },
+  Current:   { bg: '#EFF6FF', border: '#3B82F6', icon: '#3B82F6', text: '#1D4ED8' },
+  Pending:   { bg: 'var(--bg)', border: 'var(--border)', icon: '#94A3B8', text: 'var(--text-muted)' },
 };
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
@@ -227,7 +227,6 @@ export default function FormDetailsPage() {
         showToast('Form sent back for correction.');
       }
 
-      // Refetch to get updated state
       await fetchDetails();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Action failed', '#EF4444');
@@ -236,8 +235,8 @@ export default function FormDetailsPage() {
     }
   };
 
-  const handleApprove = () => callAction('approve');
-  const handleReject = (remark: string) => { setRejectModal(false); callAction('reject', remark); };
+  const handleApprove  = () => callAction('approve');
+  const handleReject   = (remark: string) => { setRejectModal(false);   callAction('reject',   remark); };
   const handleSendBack = (remark: string) => { setSendBackModal(false); callAction('sendback', remark); };
 
   // ── Loading ─────────────────────────────────────────────────────────────────
@@ -269,6 +268,16 @@ export default function FormDetailsPage() {
   const { canAct, isLastVerifier, isCurrentVerifier, nextVerifier } = verifierContext;
   const isFinished = submission.overallStatus !== 'Pending';
 
+  // ── Progress calculation ────────────────────────────────────────────────────
+  // Only count levels where status is 'Completed' AND actionStatus is 'Approved'.
+  // Starts at 0% when nothing is approved yet (e.g. level 1 is still pending).
+  const acceptedLevels = workflow.filter(
+    s => s.status === 'Completed' && s.actionStatus === 'Approved'
+  ).length;
+  const progressPercent = submission.totalLevels > 0
+    ? Math.round((acceptedLevels / submission.totalLevels) * 100)
+    : 0;
+
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <DashboardLayout>
@@ -284,12 +293,8 @@ export default function FormDetailsPage() {
       )}
 
       {/* Modals */}
-      {rejectModal && (
-        <RejectModal onClose={() => setRejectModal(false)} onSubmit={handleReject} loading={actionLoading} />
-      )}
-      {sendBackModal && (
-        <SendBackModal onClose={() => setSendBackModal(false)} onSubmit={handleSendBack} loading={actionLoading} />
-      )}
+      {rejectModal   && <RejectModal   onClose={() => setRejectModal(false)}   onSubmit={handleReject}   loading={actionLoading} />}
+      {sendBackModal && <SendBackModal onClose={() => setSendBackModal(false)} onSubmit={handleSendBack} loading={actionLoading} />}
 
       {/* Back nav */}
       <div className="mb-5 flex items-center gap-2">
@@ -317,7 +322,7 @@ export default function FormDetailsPage() {
           </p>
         </div>
 
-        {/* Action buttons — only shown if this verifier can currently act */}
+        {/* Action buttons */}
         {!isFinished && canAct && (
           <div className="flex gap-2 flex-wrap">
             <button onClick={() => setSendBackModal(true)} className="btn-warning" disabled={actionLoading}>
@@ -413,7 +418,6 @@ export default function FormDetailsPage() {
                               style={{ background: c.bg, color: c.text, border: `1px solid ${c.border}40` }}>
                               {stage.status}
                             </span>
-                            {/* Highlight logged-in verifier's stage */}
                             {stage.verifierId === verifierContext.verifierId && (
                               <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
                                 style={{ background: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE' }}>
@@ -472,7 +476,7 @@ export default function FormDetailsPage() {
             )}
           </div>
 
-          {/* Documents — placeholder; hook up real file URLs from your storage */}
+          {/* Uploaded Documents */}
           <div className="content-card p-6">
             <h3 className="font-bold text-base mb-5 flex items-center gap-2" style={{ color: 'var(--text)' }}>
               <Download style={{ width: 18, height: 18, color: '#14B8A6' }} />
@@ -507,10 +511,10 @@ export default function FormDetailsPage() {
 
             <div className="space-y-3 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
               {[
-                { icon: Hash, label: 'Form', val: form.title },
-                { icon: Calendar, label: 'Submitted', val: new Date(submission.submissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) },
-                { icon: Clock, label: 'Deadline', val: new Date(form.deadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) },
-                { icon: Mail, label: 'Email', val: student.email },
+                { icon: Hash,     label: 'Form',      val: form.title },
+                { icon: Calendar, label: 'Submitted',  val: new Date(submission.submissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) },
+                { icon: Clock,    label: 'Deadline',   val: new Date(form.deadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) },
+                { icon: Mail,     label: 'Email',      val: student.email },
               ].map(({ icon: Icon, label, val }) => (
                 <div key={label} className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -526,23 +530,25 @@ export default function FormDetailsPage() {
             </div>
           </div>
 
-          {/* Progress */}
+          {/* Verification Progress */}
           <div className="content-card p-5">
             <h4 className="font-bold text-sm mb-4" style={{ color: 'var(--text)' }}>Verification Progress</h4>
             <div className="flex items-center justify-between mb-2 text-sm">
               <span style={{ color: 'var(--text-muted)' }}>
-                Level {submission.currentLevel} of {submission.totalLevels}
+                {acceptedLevels} of {submission.totalLevels} levels accepted
               </span>
               <span className="font-bold" style={{ color: '#3B82F6' }}>
-                {Math.round((submission.currentLevel / submission.totalLevels) * 100)}%
+                {progressPercent}%
               </span>
             </div>
             <div className="h-2 rounded-full mb-4" style={{ background: 'var(--border)' }}>
-              <div className="h-full rounded-full transition-all"
+              <div
+                className="h-full rounded-full transition-all"
                 style={{
-                  width: `${(submission.currentLevel / submission.totalLevels) * 100}%`,
+                  width: `${progressPercent}%`,
                   background: 'linear-gradient(90deg,#3B82F6,#14B8A6)',
-                }} />
+                }}
+              />
             </div>
             <div className="flex gap-2 flex-wrap">
               {workflow.map(s => (
@@ -550,13 +556,14 @@ export default function FormDetailsPage() {
                   style={{
                     background:
                       s.status === 'Completed' ? '#F0FDF4' :
-                        s.status === 'Current' ? '#EFF6FF' : 'var(--bg)',
+                      s.status === 'Current'   ? '#EFF6FF' : 'var(--bg)',
                     color:
                       s.status === 'Completed' ? '#22C55E' :
-                        s.status === 'Current' ? '#3B82F6' : 'var(--text-muted)',
-                    border: `1px solid ${s.status === 'Completed' ? '#22C55E40' :
-                      s.status === 'Current' ? '#3B82F640' : 'var(--border)'
-                      }`,
+                      s.status === 'Current'   ? '#3B82F6' : 'var(--text-muted)',
+                    border: `1px solid ${
+                      s.status === 'Completed' ? '#22C55E40' :
+                      s.status === 'Current'   ? '#3B82F640' : 'var(--border)'
+                    }`,
                   }}>
                   {s.level}
                 </div>
