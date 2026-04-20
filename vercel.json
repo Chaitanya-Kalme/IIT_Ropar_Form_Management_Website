@@ -1,0 +1,16 @@
+{
+    "rewrites": [
+        {
+            "source": "/admin/(.*)",
+            "destination": "/admin_portal/$1"
+        },
+        {
+            "source": "/verifier/(.*)",
+            "destination": "/verifier%20portal/$1"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/user_portal/$1"
+        }
+    ]
+}
