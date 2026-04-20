@@ -7,13 +7,13 @@ import { useTheme } from '@/lib/theme';
 import { useApp } from '@/lib/app-context';
 
 const breadcrumbMap: Record<string, string> = {
-  '/dashboard':        'Dashboard',
-  '/assigned-forms':   'All Assigned Forms',
-  '/pending-approvals':'Pending Approvals',
-  '/all-submissions':  'All Submissions',
-  '/activity':         'Activity',
-  '/profile':          'Profile',
-  '/form-details':     'Form Details',
+  '/dashboard': 'Dashboard',
+  '/assigned-forms': 'All Assigned Forms',
+  '/pending-approvals': 'Pending Approvals',
+  '/all-submissions': 'All Submissions',
+  '/activity': 'Activity',
+  '/profile': 'Profile',
+  '/form-details': 'Form Details',
 };
 
 function getBreadcrumbs(path: string) {
@@ -29,19 +29,19 @@ function getBreadcrumbs(path: string) {
 }
 
 export default function Navbar() {
-  const { theme, toggle }               = useTheme();
-  const { currentUser, logout }         = useApp();
-  const pathname                        = usePathname();
+  const { theme, toggle } = useTheme();
+  const { currentUser, logout } = useApp();
+  const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showNotif,    setShowNotif]    = useState(false);
+  const [showNotif, setShowNotif] = useState(false);
 
-  const crumbs    = getBreadcrumbs(pathname);
+  const crumbs = getBreadcrumbs(pathname);
   const pageTitle = crumbs[crumbs.length - 1]?.label || 'Dashboard';
 
   // Derive display values from currentUser
-  const displayName    = currentUser?.name     ?? 'Verifier';
-  const displayEmail   = currentUser?.email    ?? '';
-  const displayRole    = currentUser?.role     ?? '';
+  const displayName = currentUser?.name ?? 'Verifier';
+  const displayEmail = currentUser?.email ?? '';
+  const displayRole = currentUser?.role ?? '';
   const displayInitials = currentUser?.initials
     ?? displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
@@ -79,10 +79,6 @@ export default function Navbar() {
       {/* ── Right ────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2">
 
-        {/* Search */}
-        <button className="icon-btn" title="Search">
-          <Search className="w-4 h-4" />
-        </button>
 
         {/* Notifications */}
         <div className="relative">
@@ -109,9 +105,9 @@ export default function Navbar() {
                   style={{ background: '#EFF6FF', color: '#1D4ED8' }}>3 New</span>
               </div>
               {[
-                { msg: 'New submission: No Dues Certificate',          time: '2m ago', color: '#3B82F6' },
-                { msg: 'Arjun Verma resubmitted Leave Application',    time: '1h ago', color: '#22C55E' },
-                { msg: 'Deadline tomorrow: Scholarship Form',          time: '2h ago', color: '#F59E0B' },
+                { msg: 'New submission: No Dues Certificate', time: '2m ago', color: '#3B82F6' },
+                { msg: 'Arjun Verma resubmitted Leave Application', time: '1h ago', color: '#22C55E' },
+                { msg: 'Deadline tomorrow: Scholarship Form', time: '2h ago', color: '#F59E0B' },
               ].map((n, i) => (
                 <div
                   key={i}
@@ -138,7 +134,7 @@ export default function Navbar() {
         {/* Theme toggle */}
         <button onClick={toggle} className="icon-btn" title="Toggle theme">
           {theme === 'dark'
-            ? <Sun  className="w-4 h-4 text-yellow-400" />
+            ? <Sun className="w-4 h-4 text-yellow-400" />
             : <Moon className="w-4 h-4" />}
         </button>
 
