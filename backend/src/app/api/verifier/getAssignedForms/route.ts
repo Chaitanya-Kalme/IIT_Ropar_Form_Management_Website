@@ -81,9 +81,16 @@ export async function GET(req: NextRequest) {
         (s) => s.overallStatus === "Rejected"
       ).length;
 
-      const isExpired = new Date() > new Date(form.deadline);
+      const isManuallyClosed = form.formStatus === false;
+
+      const deadlineDate =
+        form.deadline ? new Date(form.deadline) : null;
+
+      const isExpired =
+        deadlineDate ? new Date() > deadlineDate : false;
+
       const status: "Active" | "Closed" =
-        form.formStatus && !isExpired ? "Active" : "Closed";
+        !isManuallyClosed && !isExpired ? "Active" : "Closed";
 
       return {
         id: form.id,
@@ -101,10 +108,19 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // Sort: active first, then by soonest deadline
+    const getTime = (d: string | Date | null | undefined) => {
+      if (!d) return Number.MAX_SAFE_INTEGER;
+
+      const t = new Date(d).getTime();
+      return isNaN(t) ? Number.MAX_SAFE_INTEGER : t;
+    };
+
     forms.sort((a, b) => {
-      if (a.status !== b.status) return a.status === "Active" ? -1 : 1;
-      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      if (a.status !== b.status) {
+        return a.status === "Active" ? -1 : 1;
+      }
+
+      return getTime(a.deadline) - getTime(b.deadline);
     });
 
     return NextResponse.json(

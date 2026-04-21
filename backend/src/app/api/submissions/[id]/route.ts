@@ -149,13 +149,19 @@ export async function GET(
             };
         });
 
-        // 6. Derive display status
-        const now = new Date();
 
         // For display: deadline passed (end of day)
-        const deadlineEndOfDay = new Date(submission.form.deadline);
-        deadlineEndOfDay.setHours(23, 59, 59, 999);
-        const isExpired = deadlineEndOfDay < now;
+        const now = new Date();
+
+        const deadline = submission.form.deadline;
+
+        const deadlineEndOfDay = deadline
+            ? new Date(deadline)
+            : null;
+
+        const isExpired = deadlineEndOfDay
+            ? deadlineEndOfDay.setHours(23, 59, 59, 999) && deadlineEndOfDay < now
+            : false;
 
         // For user portal: can they still submit/edit? No — deadline has passed
         // For verifier/admin: always allowed to act regardless of deadline
@@ -262,7 +268,7 @@ export async function POST(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id: submissionId } = await params;
- 
+
     // 1. Verifier-only auth
     const verifierId = await getAuthorizedVerifierId();
     if (!verifierId) {
@@ -271,24 +277,24 @@ export async function POST(
             { status: 401 }
         );
     }
- 
+
     const body = await req.json() as { action?: string; remark?: string };
     const { action, remark } = body;
- 
+
     if (!action || !['approve', 'reject', 'sendback'].includes(action)) {
         return NextResponse.json(
             { error: 'Invalid action. Must be approve | reject | sendback' },
             { status: 400 }
         );
     }
- 
+
     if ((action === 'reject' || action === 'sendback') && !remark?.trim()) {
         return NextResponse.json(
             { error: 'A remark is required when rejecting or sending back' },
             { status: 400 }
         );
     }
- 
+
     try {
         // 2. Load submission + verifier chain
         const submission = await prisma.formSubmissions.findUnique({
@@ -301,11 +307,11 @@ export async function POST(
                 },
             },
         });
- 
+
         if (!submission) {
             return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
         }
- 
+
         // 3. Submission must still be actionable
         if (submission.overallStatus !== SubmissionStatus.Pending) {
             return NextResponse.json(
@@ -315,19 +321,19 @@ export async function POST(
                 { status: 409 }
             );
         }
- 
+
         // 4. Verifier must be in the chain for this specific form
         const verifierLevelEntry = submission.form.verifiersList.find(
             (vl) => vl.verifierId === verifierId
         );
- 
+
         if (!verifierLevelEntry) {
             return NextResponse.json(
                 { error: 'Forbidden: you are not a verifier for this form' },
                 { status: 403 }
             );
         }
- 
+
         // 5. Must be their turn
         if (verifierLevelEntry.level !== submission.currentLevel) {
             return NextResponse.json(
@@ -337,10 +343,10 @@ export async function POST(
                 { status: 403 }
             );
         }
- 
+
         const totalLevels = submission.form.verifiersList.length;
         const isLastVerifier = verifierLevelEntry.level === totalLevels;
- 
+
         // 6. Apply action + write audit log in a single transaction
         await prisma.$transaction(async (tx) => {
             if (action === 'approve') {
@@ -361,14 +367,14 @@ export async function POST(
                         remark: remark?.trim() || null,
                     },
                 });
- 
+
                 await tx.formSubmissions.update({
                     where: { id: submissionId },
                     data: isLastVerifier
                         ? { overallStatus: SubmissionStatus.Approved }
                         : { currentLevel: submission.currentLevel + 1 },
                 });
- 
+
                 await tx.auditLog.create({
                     data: {
                         action: LogAction.VERIFICATION_APPROVED,
@@ -385,7 +391,7 @@ export async function POST(
                         },
                     },
                 });
- 
+
             } else if (action === 'reject') {
                 await tx.verificationAction.upsert({
                     where: {
@@ -404,12 +410,12 @@ export async function POST(
                         remark: remark!.trim(),
                     },
                 });
- 
+
                 await tx.formSubmissions.update({
                     where: { id: submissionId },
                     data: { overallStatus: SubmissionStatus.Rejected },
                 });
- 
+
                 await tx.auditLog.create({
                     data: {
                         action: LogAction.VERIFICATION_REJECTED,
@@ -425,13 +431,13 @@ export async function POST(
                         },
                     },
                 });
- 
+
             } else if (action === 'sendback') {
                 await tx.formSubmissions.update({
                     where: { id: submissionId },
                     data: { currentLevel: 1 },
                 });
- 
+
                 await tx.verificationAction.upsert({
                     where: {
                         submissionId_level: { submissionId, level: verifierLevelEntry.level },
@@ -447,7 +453,7 @@ export async function POST(
                         remark: `[SENT BACK] ${remark!.trim()}`,
                     },
                 });
- 
+
                 await tx.auditLog.create({
                     data: {
                         action: LogAction.VERIFICATION_REMARKED,
@@ -465,7 +471,7 @@ export async function POST(
                 });
             }
         });
- 
+
         return NextResponse.json({ success: true, action });
     } catch (error) {
         console.error('[SubmissionDetails POST] Error:', error);

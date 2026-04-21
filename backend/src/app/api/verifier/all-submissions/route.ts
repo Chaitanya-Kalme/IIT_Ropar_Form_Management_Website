@@ -121,60 +121,78 @@ export async function GET(req: NextRequest) {
 
         const now = new Date();
 
-        // 5. Map to response shape + derive display status
-        const mapped = submissions.map((s) => {
-            const deadlineEndOfDay = new Date(s.form.deadline);
-            deadlineEndOfDay.setHours(23, 59, 59, 999);
-            const isExpired = deadlineEndOfDay < now;
+        const mapped = submissions
+            .map((s) => {
+                const deadlineRaw = s.form.deadline;
 
-            let displayStatus: 'Accepted' | 'Pending' | 'Rejected' | 'Expired';
-            if (s.overallStatus === SubmissionStatus.Approved) {
-                displayStatus = 'Accepted';
-            } else if (s.overallStatus === SubmissionStatus.Rejected) {
-                displayStatus = 'Rejected';
-            } else if (isExpired) {
-                displayStatus = 'Expired';
-            } else {
-                displayStatus = 'Pending';
-            }
+                // safe deadline handling
+                const hasDeadline = !!deadlineRaw;
+                const deadlineDate = hasDeadline ? new Date(deadlineRaw as Date) : null;
 
-            // Current verifier (by currentLevel)
-            const currentVerifierEntry = s.form.verifiersList.find(
-                (vl) => vl.level === s.currentLevel
-            );
+                const deadlineEndOfDay = deadlineDate
+                    ? new Date(deadlineDate)
+                    : null;
 
-            return {
-                id: s.id,
-                studentName: s.user.userName,
-                email: s.user.email,
-                formId: s.form.id,
-                formTitle: s.form.title,
-                submissionDate: s.createdAt,
-                deadline: s.form.deadline,
-                isExpired,
-                status: displayStatus,
-                overallStatus: s.overallStatus,
-                currentLevel: s.currentLevel,
-                totalLevels: s.form.verifiersList.length,
-                currentVerifier: currentVerifierEntry?.verifier.userName ?? '—',
-                currentVerifierRole: currentVerifierEntry?.verifier.role ?? '—',
-            };
-        });
+                if (deadlineEndOfDay) {
+                    deadlineEndOfDay.setHours(23, 59, 59, 999);
+                }
 
+                const isExpired =
+                    deadlineEndOfDay ? deadlineEndOfDay < now : false;
+
+                let displayStatus: 'Accepted' | 'Pending' | 'Rejected' | 'Expired';
+
+                if (s.overallStatus === SubmissionStatus.Approved) {
+                    displayStatus = 'Accepted';
+                } else if (s.overallStatus === SubmissionStatus.Rejected) {
+                    displayStatus = 'Rejected';
+                } else if (isExpired) {
+                    displayStatus = 'Expired';
+                } else {
+                    displayStatus = 'Pending';
+                }
+
+                const currentVerifierEntry = s.form.verifiersList.find(
+                    (vl) => vl.level === s.currentLevel
+                );
+
+                return {
+                    id: s.id,
+                    studentName: s.user.userName,
+                    email: s.user.email,
+                    formId: s.form.id,
+                    formTitle: s.form.title,
+                    submissionDate: s.createdAt,
+
+                    // ✅ IMPORTANT FIX: safe fallback
+                    deadline: deadlineRaw ? deadlineRaw : null,
+
+                    isExpired,
+                    status: displayStatus,
+                    overallStatus: s.overallStatus,
+                    currentLevel: s.currentLevel,
+                    totalLevels: s.form.verifiersList.length,
+                    currentVerifier: currentVerifierEntry?.verifier.userName ?? '—',
+                    currentVerifierRole: currentVerifierEntry?.verifier.role ?? '—',
+                };
+            })
+            .filter(Boolean) as NonNullable<any>[];
         // 6. Apply derived Expired filter if requested
+        const safeMapped = mapped.filter(
+            (s): s is NonNullable<typeof s> => s !== null && s !== undefined
+        );
+
         const result =
             statusParam === 'Expired'
                 ? mapped.filter((s) => s.status === 'Expired')
                 : mapped;
 
-        // 7. Build stats from the full unfiltered set for this verifier
-        const allForStats = mapped; // already all statuses when no status filter
         const stats = {
-            total: allForStats.length,
-            pending: allForStats.filter((s) => s.status === 'Pending').length,
-            accepted: allForStats.filter((s) => s.status === 'Accepted').length,
-            rejected: allForStats.filter((s) => s.status === 'Rejected').length,
-            expired: allForStats.filter((s) => s.status === 'Expired').length,
+            total: mapped.length,
+            pending: mapped.filter((s) => s.status === 'Pending').length,
+            accepted: mapped.filter((s) => s.status === 'Accepted').length,
+            rejected: mapped.filter((s) => s.status === 'Rejected').length,
+            expired: mapped.filter((s) => s.status === 'Expired').length,
         };
 
         // 8. Distinct form list for the form filter dropdown

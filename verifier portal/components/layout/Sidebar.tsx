@@ -7,6 +7,7 @@ import {
   LayoutDashboard, FileText, Clock, FileStack, Activity,
   User, LogOut, Shield, ChevronLeft, Menu
 } from 'lucide-react';
+import { signOut } from "next-auth/react";
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, color: '#3B82F6' },
@@ -66,10 +67,13 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Logout */}
       <div className="px-3 py-4 border-t" style={{ borderColor: 'var(--border)' }}>
         <div className="relative" onMouseEnter={() => setHoveredItem('logout')} onMouseLeave={() => setHoveredItem(null)}>
-          <Link href="/login" className="nav-link">
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="nav-link w-full text-left"
+          >
             <LogOut className="w-4.5 h-4.5 flex-shrink-0 text-red-400" style={{ width: 18, height: 18 }} />
             {!collapsed && <span className="text-red-400">Logout</span>}
-          </Link>
+          </button>
           {collapsed && hoveredItem === 'logout' && <div className="tooltip">Logout</div>}
         </div>
       </div>

@@ -78,9 +78,18 @@ export async function GET(req: NextRequest) {
         const now = new Date();
 
         const result = submissions.map((s) => {
-            const deadlineEndOfDay = new Date(s.form.deadline);
-            deadlineEndOfDay.setHours(23, 59, 59, 999);
-            const isExpired = deadlineEndOfDay < now;
+            const deadlineDate = s.form.deadline ? new Date(s.form.deadline) : null;
+
+            const deadlineEndOfDay = deadlineDate
+                ? new Date(deadlineDate)
+                : null;
+
+            if (deadlineEndOfDay) {
+                deadlineEndOfDay.setHours(23, 59, 59, 999);
+            }
+
+            const isExpired =
+                deadlineEndOfDay ? deadlineEndOfDay < now : false;
 
             // Find this verifier's level entry for this form
             const myLevelEntry = s.form.verifiersList.find(
@@ -118,7 +127,11 @@ export async function GET(req: NextRequest) {
             expired: result.filter((s) => s.isExpired).length,
             urgent: result.filter((s) => {
                 if (s.isExpired) return false;
+                if (!s.deadline) return false;
+
                 const deadline = new Date(s.deadline);
+                if (isNaN(deadline.getTime())) return false;
+
                 const diffMs = deadline.getTime() - now.getTime();
                 return diffMs > 0 && diffMs < 86400000 * 2; // within 2 days
             }).length,

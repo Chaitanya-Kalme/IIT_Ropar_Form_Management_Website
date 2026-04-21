@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
-import { Search, Mail, Trash2, Edit2, UserPlus, X, Send, Check, Eye, RefreshCw, AlertCircle, Phone } from 'lucide-react';
+import { Search, Mail, Trash2, Edit2, UserPlus, X, Send, Check, Eye, RefreshCw, AlertCircle, Phone, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -25,6 +25,8 @@ interface Verifier {
 
 const ALL_ROLES: Role[] = ['Admin', 'HOD', 'Caretaker', 'Dean', 'Faculty'];
 
+const PAGE_SIZE_OPTIONS = [10, 25, 50];
+
 const ROLE_STYLES: Record<Role, { pill: string; icon: string }> = {
   Admin:     { pill: 'bg-red-100    dark:bg-red-900/30    text-red-700    dark:text-red-400',    icon: '🛡️' },
   HOD:       { pill: 'bg-blue-100   dark:bg-blue-900/30   text-blue-700   dark:text-blue-400',   icon: '👑' },
@@ -45,6 +47,117 @@ const initials = (name: string) =>
 
 const avatarHue = (name: string) =>
   `hsl(${(name.charCodeAt(0) * 13) % 360}, 55%, 35%)`;
+
+// ── Pagination Component ──────────────────────────────────────────────────────
+
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+  totalItems: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+}
+
+function Pagination({
+  currentPage,
+  totalPages,
+  pageSize,
+  totalItems,
+  onPageChange,
+  onPageSizeChange,
+}: PaginationProps) {
+  // Build page number array with ellipsis
+  const getPageNumbers = (): (number | '...')[] => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages: (number | '...')[] = [];
+    if (currentPage <= 4) {
+      pages.push(1, 2, 3, 4, 5, '...', totalPages);
+    } else if (currentPage >= totalPages - 3) {
+      pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+    } else {
+      pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+    }
+    return pages;
+  };
+
+  const start = (currentPage - 1) * pageSize + 1;
+  const end   = Math.min(currentPage * pageSize, totalItems);
+
+  return (
+    <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex flex-wrap items-center justify-between gap-4">
+      {/* Left — record info + rows per page */}
+      <div className="flex items-center gap-4">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Showing{' '}
+          <span className="font-medium text-gray-700 dark:text-gray-300">{start}–{end}</span>{' '}
+          of{' '}
+          <span className="font-medium text-gray-700 dark:text-gray-300">{totalItems}</span> members
+        </p>
+
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Rows per page</label>
+          <select
+            value={pageSize}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/30"
+          >
+            {PAGE_SIZE_OPTIONS.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Right — page buttons */}
+      <div className="flex items-center gap-1">
+        {/* Previous */}
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronLeft size={13} />
+          Prev
+        </button>
+
+        {/* Page numbers */}
+        {getPageNumbers().map((page, idx) =>
+          page === '...' ? (
+            <span
+              key={`ellipsis-${idx}`}
+              className="px-2.5 py-1.5 text-xs text-gray-400 dark:text-gray-500"
+            >
+              …
+            </span>
+          ) : (
+            <button
+              key={page}
+              onClick={() => onPageChange(page as number)}
+              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                page === currentPage
+                  ? 'bg-[#1E3A8A] text-white border-[#1E3A8A]'
+                  : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              {page}
+            </button>
+          )
+        )}
+
+        {/* Next */}
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages || totalPages === 0}
+          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          Next
+          <ChevronRight size={13} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ── Email Modal ───────────────────────────────────────────────────────────────
 
@@ -113,7 +226,6 @@ function EmailModal({ recipients, onClose }: EmailModalProps) {
                 </span>
               ))}
             </div>
-            {/* Show actual emails as a subtle hint */}
             <p className="text-xs text-gray-400 mt-1 truncate">
               {recipients.map((r) => r.email).join(', ')}
             </p>
@@ -216,14 +328,18 @@ function DeleteModal({ member, onConfirm, onCancel }: DeleteModalProps) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AllMembersPage() {
-  const [members, setMembers]             = useState<Verifier[]>([]);
-  const [loading, setLoading]             = useState(true);
-  const [error, setError]                 = useState<string | null>(null);
-  const [search, setSearch]               = useState('');
-  const [roleFilter, setRoleFilter]       = useState('All');
-  const [selected, setSelected]           = useState<Set<string>>(new Set());
+  const [members, setMembers]                 = useState<Verifier[]>([]);
+  const [loading, setLoading]                 = useState(true);
+  const [error, setError]                     = useState<string | null>(null);
+  const [search, setSearch]                   = useState('');
+  const [roleFilter, setRoleFilter]           = useState('All');
+  const [selected, setSelected]               = useState<Set<string>>(new Set());
   const [emailRecipients, setEmailRecipients] = useState<Verifier[] | null>(null);
-  const [deleteTarget, setDeleteTarget]   = useState<Verifier | null>(null);
+  const [deleteTarget, setDeleteTarget]       = useState<Verifier | null>(null);
+
+  // ── Pagination state ────────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize]       = useState(10);
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
 
@@ -246,6 +362,9 @@ export default function AllMembersPage() {
 
   useEffect(() => { fetchMembers(); }, []);
 
+  // ── Reset to page 1 when filters/search change ──────────────────────────────
+  useEffect(() => { setCurrentPage(1); }, [search, roleFilter, pageSize]);
+
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const filtered = members.filter((m) => {
@@ -257,6 +376,10 @@ export default function AllMembersPage() {
     return matchSearch && matchRole;
   });
 
+  const totalPages  = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage    = Math.min(currentPage, totalPages);
+  const paginated   = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+
   // ── Selection ───────────────────────────────────────────────────────────────
 
   const toggleSelect = (id: string) => {
@@ -267,12 +390,24 @@ export default function AllMembersPage() {
     });
   };
 
+  // "Select all" only operates on the current page's rows
+  const allCurrentSelected =
+    paginated.length > 0 && paginated.every((m) => selected.has(m.id));
+
   const toggleAll = () => {
-    setSelected(
-      selected.size === filtered.length && filtered.length > 0
-        ? new Set()
-        : new Set(filtered.map((m) => m.id))
-    );
+    if (allCurrentSelected) {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        paginated.forEach((m) => next.delete(m.id));
+        return next;
+      });
+    } else {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        paginated.forEach((m) => next.add(m.id));
+        return next;
+      });
+    }
   };
 
   // ── Actions ─────────────────────────────────────────────────────────────────
@@ -390,7 +525,7 @@ export default function AllMembersPage() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
-              {role !== 'All' && <span className="mr-1">{ROLE_STYLES[role].icon}</span>}
+              {role !== 'All' && <span className="mr-1">{ROLE_STYLES[role as Role].icon}</span>}
               {role}
             </button>
           ))}
@@ -409,7 +544,7 @@ export default function AllMembersPage() {
                 <th className="px-6 py-3.5 w-12">
                   <input
                     type="checkbox"
-                    checked={selected.size === filtered.length && filtered.length > 0}
+                    checked={allCurrentSelected}
                     onChange={toggleAll}
                     className="w-4 h-4 text-[#1E3A8A] rounded border-gray-300 cursor-pointer"
                   />
@@ -445,8 +580,8 @@ export default function AllMembersPage() {
                 </tr>
               ))}
 
-              {/* Data rows */}
-              {!loading && !error && filtered.map((member) => {
+              {/* Data rows — paginated */}
+              {!loading && !error && paginated.map((member) => {
                 const roleStyle = ROLE_STYLES[member.role];
                 return (
                   <tr
@@ -533,13 +668,6 @@ export default function AllMembersPage() {
                         >
                           <Edit2 size={14} />
                         </Link>
-                        <button
-                          onClick={() => setDeleteTarget(member)}
-                          className="p-1.5 text-red-500 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-lg transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 size={14} />
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -567,17 +695,26 @@ export default function AllMembersPage() {
           </table>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {loading ? 'Loading...' : (
-              <>
-                Showing <span className="font-medium">{filtered.length}</span> of{' '}
-                <span className="font-medium">{members.length}</span> members
-              </>
-            )}
-          </p>
-        </div>
+        {/* Pagination footer */}
+        {!loading && !error && filtered.length > 0 && (
+          <Pagination
+            currentPage={safePage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filtered.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+          />
+        )}
+
+        {/* Fallback footer when no data */}
+        {(loading || error || filtered.length === 0) && (
+          <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {loading ? 'Loading...' : `Showing 0 of ${members.length} members`}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Modals */}
@@ -585,13 +722,6 @@ export default function AllMembersPage() {
         <EmailModal recipients={emailRecipients} onClose={() => setEmailRecipients(null)} />
       )}
 
-      {deleteTarget && (
-        <DeleteModal
-          member={deleteTarget}
-          onConfirm={confirmDelete}
-          onCancel={() => setDeleteTarget(null)}
-        />
-      )}
     </div>
   );
 }

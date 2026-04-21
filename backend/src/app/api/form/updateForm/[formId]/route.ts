@@ -12,8 +12,8 @@ const allowedTypes = [
 ];
 
 const isValidField = (field: any) => {
-  if (typeof field.label    !== "string")  return false;
-  if (!allowedTypes.includes(field.type))  return false;
+  if (typeof field.label !== "string") return false;
+  if (!allowedTypes.includes(field.type)) return false;
   if (typeof field.required !== "boolean") return false;
   if (["radio", "select", "checkbox"].includes(field.type)) {
     if (!Array.isArray(field.options) || field.options.length === 0) return false;
@@ -23,8 +23,8 @@ const isValidField = (field: any) => {
 };
 
 const isValidVerifierLevel = (v: any) => {
-  if (typeof v.verifierId !== "string")              return false;
-  if (typeof v.level !== "number" || v.level < 1)   return false;
+  if (typeof v.verifierId !== "string") return false;
+  if (typeof v.level !== "number" || v.level < 1) return false;
   return true;
 };
 
@@ -85,7 +85,11 @@ export async function PATCH(
     }
 
     // ── Validate deadline ───────────────────────────────────────────────
-    if (deadline !== undefined && isNaN(Date.parse(deadline))) {
+    if (
+      deadline !== undefined &&
+      deadline !== "" &&
+      isNaN(Date.parse(deadline))
+    ) {
       return NextResponse.json({
         success: false,
         message: "deadline must be a valid ISO date string.",
@@ -163,11 +167,13 @@ export async function PATCH(
       const form = await tx.form.update({
         where: { id },
         data: {
-          ...(title       !== undefined && { title:       title.trim()        }),
-          ...(description !== undefined && { description: description.trim()  }),
-          ...(deadline    !== undefined && { deadline:    new Date(deadline)   }),
-          ...(formStatus  !== undefined && { formStatus:  Boolean(formStatus)  }),
-          ...(fields      !== undefined && { formFields:  fields               }),
+          ...(title !== undefined && { title: title.trim() }),
+          ...(description !== undefined && { description: description.trim() }),
+          ...(deadline !== undefined && {
+            deadline: deadline === "" ? null : new Date(deadline),
+          }),
+          ...(formStatus !== undefined && { formStatus: Boolean(formStatus) }),
+          ...(fields !== undefined && { formFields: fields }),
         },
       });
 
@@ -181,9 +187,9 @@ export async function PATCH(
         // Re-create with new order
         await tx.formVerifierLevel.createMany({
           data: verifiers.map((v: any) => ({
-            formId:     id,
+            formId: id,
             verifierId: v.verifierId,
-            level:      v.level,
+            level: v.level,
           })),
         });
       }
@@ -191,34 +197,39 @@ export async function PATCH(
       // 3. Save audit log
       await tx.auditLog.create({
         data: {
-          action:          LogAction.FORM_UPDATED,
-          entity:          "Form",
-          entityId:        String(id),
-          actorType:       ActorType.Verifier,    // admin lives in Verifier table
+          action: LogAction.FORM_UPDATED,
+          entity: "Form",
+          entityId: String(id),
+          actorType: ActorType.Verifier,    // admin lives in Verifier table
           actorVerifierId: session.user.id,
-          actorUserId:     null,
-          formId:          id,
+          actorUserId: null,
+          formId: id,
           diff: {
             before: {
-              title:       existingForm.title,
+              title: existingForm.title,
               description: existingForm.description,
-              deadline:    existingForm.deadline,
-              formStatus:  existingForm.formStatus,
-              formFields:  existingForm.formFields,
-              verifiers:   existingForm.verifiersList,
+              deadline: existingForm.deadline,
+              formStatus: existingForm.formStatus,
+              formFields: existingForm.formFields,
+              verifiers: existingForm.verifiersList,
             },
             after: {
-              title:       title       ?? existingForm.title,
+              title: title ?? existingForm.title,
               description: description ?? existingForm.description,
-              deadline:    deadline    ?? existingForm.deadline,
-              formStatus:  formStatus  ?? existingForm.formStatus,
-              formFields:  fields      ?? existingForm.formFields,
-              verifiers:   verifiers   ?? existingForm.verifiersList,
+              deadline:
+                deadline === undefined
+                  ? existingForm.deadline
+                  : deadline === ""
+                    ? null
+                    : deadline,
+              formStatus: formStatus ?? existingForm.formStatus,
+              formFields: fields ?? existingForm.formFields,
+              verifiers: verifiers ?? existingForm.verifiersList,
             },
           },
           meta: {
-            ip:         req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown",
-            userAgent:  req.headers.get("user-agent") ?? "unknown",
+            ip: req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown",
+            userAgent: req.headers.get("user-agent") ?? "unknown",
             adminEmail: session.user.email,
           },
         },
@@ -239,7 +250,7 @@ export async function PATCH(
     return NextResponse.json({
       success: true,
       message: "Form updated successfully.",
-      data:    updatedForm,
+      data: updatedForm,
     }, { status: 200 });
 
   } catch (error: any) {

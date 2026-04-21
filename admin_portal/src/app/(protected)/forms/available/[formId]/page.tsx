@@ -52,10 +52,18 @@ interface FormData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const formatDate = (dateStr: string) =>
-  new Date(dateStr).toLocaleDateString('en-US', {
-    year: 'numeric', month: 'short', day: 'numeric',
+const formatDate = (dateStr?: string | null) => {
+  if (!dateStr) return '-';
+
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '-';
+
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
   });
+};
 
 const statusBadge = (status: string) => {
   const map: Record<string, string> = {

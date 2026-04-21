@@ -96,6 +96,7 @@ function SubmissionsContent() {
         throw new Error(err.error ?? 'Failed to load submissions');
       }
 
+
       setData(await res.json());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');

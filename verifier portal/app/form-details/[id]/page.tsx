@@ -68,6 +68,19 @@ interface DetailsData {
   verifierContext: VerifierContext;
 }
 
+const formatDeadline = (date?: string | null) => {
+  if (!date) return '-';
+
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '-';
+
+  return d.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
 // ─── Modals ────────────────────────────────────────────────────────────────────
 
 function RejectModal({ onClose, onSubmit, loading }: {
@@ -433,7 +446,7 @@ export default function FormDetailsPage() {
                         {stage.date && (
                           <div className="text-xs flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
                             <Calendar className="w-3 h-3" />
-                            {new Date(stage.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            {formatDeadline(form.deadline)}
                           </div>
                         )}
                       </div>
@@ -513,7 +526,7 @@ export default function FormDetailsPage() {
               {[
                 { icon: Hash,     label: 'Form',      val: form.title },
                 { icon: Calendar, label: 'Submitted',  val: new Date(submission.submissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) },
-                { icon: Clock,    label: 'Deadline',   val: new Date(form.deadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) },
+                { icon: Clock,    label: 'Deadline',   val: formatDeadline(form.deadline) },
                 { icon: Mail,     label: 'Email',      val: student.email },
               ].map(({ icon: Icon, label, val }) => (
                 <div key={label} className="flex items-center gap-3">

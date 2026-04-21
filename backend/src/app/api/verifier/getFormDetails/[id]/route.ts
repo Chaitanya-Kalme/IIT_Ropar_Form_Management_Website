@@ -55,7 +55,9 @@ export async function GET(
 
         // ── 3. Compute stats ───────────────────────────────────────────────────
         const now = new Date();
-        const isExpired = form.deadline < now;
+        const isExpired = form.deadline
+            ? new Date(form.deadline) < now
+            : false;
 
         let accepted = 0;
         let pending = 0;

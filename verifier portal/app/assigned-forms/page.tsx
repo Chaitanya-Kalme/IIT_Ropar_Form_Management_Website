@@ -26,9 +26,16 @@ interface AssignedForm {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function formatDate(dateStr: string, opts?: Intl.DateTimeFormatOptions) {
-  return new Date(dateStr).toLocaleDateString('en-IN', opts ?? {
-    day: '2-digit', month: 'short', year: 'numeric',
+function formatDate(dateStr?: string | null, opts?: Intl.DateTimeFormatOptions) {
+  if (!dateStr) return '—'; // ✅ handles null / undefined / empty
+
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '—'; // ✅ handles invalid dates too
+
+  return date.toLocaleDateString('en-IN', opts ?? {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
   });
 }
 
@@ -41,7 +48,7 @@ function exportCSV(forms: AssignedForm[]) {
   const rows = [
     'Form Name,Level,Total,Pending,Approved,Rejected,Awaiting Review,Status,Deadline',
     ...forms.map((f) =>
-      `"${f.formName}",${f.level},${f.totalSubmissions},${f.pending},${f.approved},${f.rejected},${f.awaitingReview},${f.status},${formatDate(f.deadline)}`
+      `"${f.formName}",${f.level},${f.totalSubmissions},${f.pending},${f.approved},${f.rejected},${f.awaitingReview},${f.status},${formatDate(f.deadline ?? null)}`
     ),
   ].join('\n');
   const blob = new Blob([rows], { type: 'text/csv' });
@@ -256,7 +263,7 @@ export default function AssignedFormsPage() {
                   <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     Deadline:{' '}
                     <strong style={{ color: 'var(--text)' }}>
-                      {formatDate(form.deadline, { day: '2-digit', month: 'short' })}
+                      {formatDate(form.deadline ?? null, { day: '2-digit', month: 'short' })}
                     </strong>
                   </span>
                   <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: '#3B82F6' }}>
@@ -343,7 +350,7 @@ export default function AssignedFormsPage() {
                       </span>
                     </td>
                     <td className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                      {formatDate(f.deadline)}
+                      {formatDate(f.deadline ?? null)}
                     </td>
                     <td>
                       <button

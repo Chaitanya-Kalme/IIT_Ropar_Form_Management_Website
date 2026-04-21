@@ -226,7 +226,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
 
       setFormTitle(form.title);
       setFormDescription(form.description ?? '');
-      setDeadline(form.deadline.slice(0, 10));
+      setDeadline(form.deadline?.slice(0, 10));
       setIsActive(form.formStatus);
 
       const hydratedFields: FormField[] = (form.formFields as any[]).map((f: any) => ({
@@ -248,6 +248,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
       setVerifiers(hydratedVerifiers);
 
     } catch (err) {
+      console.log(err)
       const msg = axios.isAxiosError(err)
         ? err.response?.data?.message ?? err.message
         : 'Failed to load form';
@@ -339,7 +340,7 @@ export function FormBuilderPage({ mode, formId }: FormBuilderPageProps) {
     const payload = {
       title: formTitle.trim(),
       description: formDescription.trim(),
-      ...(deadline && { deadline }),
+      deadline: deadline === "" ? "" : deadline,
       formStatus: isActive,
       fields: apiFields,
       verifiers: apiVerifiers,
