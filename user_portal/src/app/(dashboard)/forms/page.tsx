@@ -10,20 +10,47 @@ interface FormDefinition {
   id: number;
   title: string;
   description: string;
-  deadline: string;
+  deadline: string | null;
   createdAt: string;
 }
 
 type FilterTab = "all" | "active" | "expiring" | "expired";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function formatDeadline(dateStr: string) {
+function formatDeadline(dateStr: string | null) {
+  if (!dateStr) {
+    return {
+      label: "-",
+      diff: Infinity,
+      isExpiringSoon: false,
+      isExpired: false,
+      isActive: false,
+    };
+  }
+
   const date = new Date(dateStr);
+  if (isNaN(date.getTime())) {
+    return {
+      label: "-",
+      diff: Infinity,
+      isExpiringSoon: false,
+      isExpired: false,
+      isActive: false,
+    };
+  }
+
   const now = new Date();
-  const diff = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  const diff = Math.ceil(
+    (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
   const label = date.toLocaleDateString("en-IN", {
-    day: "numeric", month: "short", year: "numeric",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   });
+
   return {
     label,
     diff,
@@ -42,10 +69,10 @@ function getSection(form: FormDefinition): FilterTab {
 
 // ── Tab config ────────────────────────────────────────────────────────────────
 const TABS: { key: FilterTab; label: string }[] = [
-  { key: "all",      label: "All Forms"     },
-  { key: "active",   label: "Active"        },
+  { key: "all", label: "All Forms" },
+  { key: "active", label: "Active" },
   { key: "expiring", label: "Expiring Soon" },
-  { key: "expired",  label: "Closed"        },
+  { key: "expired", label: "Closed" },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -76,10 +103,10 @@ export default function FormsPage() {
 
   // Counts per tab
   const counts: Record<FilterTab, number> = {
-    all:      forms.length,
-    active:   forms.filter((f) => getSection(f) === "active").length,
+    all: forms.length,
+    active: forms.filter((f) => getSection(f) === "active").length,
     expiring: forms.filter((f) => getSection(f) === "expiring").length,
-    expired:  forms.filter((f) => getSection(f) === "expired").length,
+    expired: forms.filter((f) => getSection(f) === "expired").length,
   };
 
   const filtered = forms.filter((f) => {
@@ -171,18 +198,16 @@ export default function FormsPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`relative flex items-center gap-2 px-4 py-3.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors border-b-2 ${
-                activeTab === tab.key
-                  ? "border-[#1a2744] text-[#1a2744]"
-                  : "border-transparent text-[#a89880] hover:text-[#6b5e4e]"
-              }`}
+              className={`relative flex items-center gap-2 px-4 py-3.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeTab === tab.key
+                ? "border-[#1a2744] text-[#1a2744]"
+                : "border-transparent text-[#a89880] hover:text-[#6b5e4e]"
+                }`}
             >
               {tab.label}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                activeTab === tab.key
-                  ? "bg-[#1a2744] text-white"
-                  : "bg-[#e8dfd0] text-[#a89880]"
-              }`}>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${activeTab === tab.key
+                ? "bg-[#1a2744] text-white"
+                : "bg-[#e8dfd0] text-[#a89880]"
+                }`}>
                 {counts[tab.key]}
               </span>
             </button>
@@ -221,23 +246,23 @@ export default function FormsPage() {
               className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             >
               {filtered.map((form, i) => {
-                const deadline = formatDeadline(form.deadline);
+                const deadline = formatDeadline(form.deadline ?? null);
                 const section = getSection(form);
 
                 const statusBar =
-                  section === "expired"  ? "linear-gradient(90deg, #f43f5e, #fb7185)" :
-                  section === "expiring" ? "linear-gradient(90deg, #f59e0b, #fbbf24)" :
-                                           "linear-gradient(90deg, #10b981, #34d399)";
+                  section === "expired" ? "linear-gradient(90deg, #f43f5e, #fb7185)" :
+                    section === "expiring" ? "linear-gradient(90deg, #f59e0b, #fbbf24)" :
+                      "linear-gradient(90deg, #10b981, #34d399)";
 
                 const statusBadge =
-                  section === "expired"  ? "bg-rose-50 text-rose-600 border-rose-200" :
-                  section === "expiring" ? "bg-amber-50 text-amber-600 border-amber-200" :
-                                           "bg-emerald-50 text-emerald-700 border-emerald-200";
+                  section === "expired" ? "bg-rose-50 text-rose-600 border-rose-200" :
+                    section === "expiring" ? "bg-amber-50 text-amber-600 border-amber-200" :
+                      "bg-emerald-50 text-emerald-700 border-emerald-200";
 
                 const statusLabel =
-                  section === "expired"  ? "Closed" :
-                  section === "expiring" ? "Closing Soon" :
-                                           "Open";
+                  section === "expired" ? "Closed" :
+                    section === "expiring" ? "Closing Soon" :
+                      "Open";
 
                 return (
                   <motion.div
@@ -274,26 +299,35 @@ export default function FormsPage() {
                         </p>
 
                         {/* Deadline */}
-                        <div className={`flex items-center gap-1.5 text-xs mb-4 ${
-                          deadline.isExpired ? "text-rose-500" :
-                          deadline.isExpiringSoon ? "text-amber-600" :
-                          "text-[#6b5e4e]"
-                        }`}>
-                          <Clock className="h-3.5 w-3.5 shrink-0" />
-                          <span>
-                            {deadline.isExpired
-                              ? `Deadline passed · ${deadline.label}`
+                        <div
+                          className={`flex items-center gap-1.5 text-xs mb-4 ${!form.deadline
+                            ? "text-[#a89880]"
+                            : deadline.isExpired
+                              ? "text-rose-500"
                               : deadline.isExpiringSoon
-                                ? `Closing soon · ${deadline.label}`
-                                : `Due ${deadline.label}`}
-                          </span>
+                                ? "text-amber-600"
+                                : "text-[#6b5e4e]"
+                            }`}
+                        >
+                          {form.deadline && (
+                            <>
+                              <Clock className="h-3.5 w-3.5 shrink-0" />
+                              <span>
+                                {deadline.isExpired
+                                  ? `Deadline passed · ${deadline.label}`
+                                  : deadline.isExpiringSoon
+                                    ? `Closing soon · ${deadline.label}`
+                                    : `Due ${deadline.label}`}
+                              </span>
+                            </>
+                          )}
                         </div>
 
                         {/* Divider */}
                         <div className="h-px bg-[#e8dfd0] mb-4" />
 
                         {/* CTA */}
-                        {deadline.isExpired ? (
+                        {form.deadline && deadline.isExpired ? (
                           <div className="flex items-center justify-center py-2 text-xs text-[#a89880] uppercase tracking-widest">
                             Form Closed
                           </div>

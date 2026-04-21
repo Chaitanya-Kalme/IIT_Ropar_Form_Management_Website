@@ -42,12 +42,37 @@ interface FormDetail {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function formatDeadline(dateStr: string) {
+function formatDeadline(dateStr?: string) {
+  if (!dateStr) {
+    return {
+      label: "",
+      isExpired: false,
+      isExpiringSoon: false,
+      isActive: false,
+      isMissing: true,
+    };
+  }
+
   const date = new Date(dateStr);
   const now = new Date();
-  const diff = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  const label = date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-  return { label, isExpired: diff < 0, isExpiringSoon: diff <= 3 && diff >= 0 };
+
+  const diff = Math.ceil(
+    (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  const label = date.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+  return {
+    label,
+    isExpired: diff < 0,
+    isExpiringSoon: diff <= 3 && diff >= 0,
+    isActive: diff > 3,
+    isMissing: false,
+  };
 }
 
 function fieldKey(field: FormField, index: number): string {
@@ -317,7 +342,7 @@ export default function FormFillPage() {
   if (!form) return null;
 
   const deadline = formatDeadline(form.deadline);
-  const isLocked = deadline.isExpired || !form.formStatus;
+  const isLocked = (deadline.isExpired || !form.formStatus);
 
   // ── Preview ───────────────────────────────────────────────────────────────
   if (showPreview) {
@@ -432,11 +457,11 @@ export default function FormFillPage() {
           <div className="bg-[#1a2744] px-8 py-7 text-center relative">
 
             {/* Logo (positioned without affecting layout) */}
-            <img 
-    src="/logo.png" 
-    alt="IIT Ropar Logo" 
-    className="absolute left-6 top-6  w-24 object-contain bg-white p-1 rounded-md"
-  />
+            <img
+              src="/logo.png"
+              alt="IIT Ropar Logo"
+              className="absolute left-6 top-6  w-24 object-contain bg-white p-1 rounded-md"
+            />
 
             <div className="absolute inset-x-0 bottom-0 h-px bg-[#c8b89a] opacity-40 align-middle" />
 
@@ -456,14 +481,25 @@ export default function FormFillPage() {
           </div>
 
           {/* Meta bar */}
-          <div className="bg-[#f5f0e8] border-b border-[#e8dfd0] px-8 py-3 flex flex-wrap items-center justify-between gap-2">
-            <div className={`flex items-center gap-1.5 text-xs ${deadline.isExpired ? "text-rose-500" : deadline.isExpiringSoon ? "text-amber-600" : "text-[#6b5e4e]"}`}>
-              <Clock className="h-3.5 w-3.5" />
-              {deadline.isExpired ? `Deadline passed · ${deadline.label}` : deadline.isExpiringSoon ? `Closing soon · ${deadline.label}` : `Due ${deadline.label}`}
-            </div>
-            <span className={`text-xs px-2.5 py-0.5 rounded-full border font-semibold ${isLocked ? "border-rose-200 bg-rose-50 text-rose-600" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
-              {isLocked ? "Closed" : "Accepting Submissions"}
-            </span>
+          <div
+            className={`flex items-center gap-1.5 text-xs ${deadline.isExpired
+                ? "text-rose-500"
+                : deadline.isExpiringSoon
+                  ? "text-amber-600"
+                  : "text-[#6b5e4e]"
+              }`}
+          >
+            <Clock className="h-3.5 w-3.5" />
+
+            {form.deadline && (
+              <>
+                {deadline.isExpired
+                  ? `Deadline passed · ${deadline.label}`
+                  : deadline.isExpiringSoon
+                    ? `Closing soon · ${deadline.label}`
+                    : `Due ${deadline.label}`}
+              </>
+            )}
           </div>
 
           {/* Locked banner */}

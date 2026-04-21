@@ -67,6 +67,31 @@ function getStatusColor(status: string) {
   }
 }
 
+function getDeadlineInfo(dateStr?: string | null) {
+  if (!dateStr) return null;
+
+  const date = new Date(dateStr);
+  date.setHours(23, 59, 59, 999); // 🔥 fix: full-day validity
+
+  const now = new Date();
+
+  const diffDays = Math.ceil(
+    (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  return {
+    date,
+    label: date.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }),
+    isExpired: date < now,
+    isExpiringSoon: diffDays <= 3 && diffDays >= 0,
+    diffDays,
+  };
+}
+
 function getStatusIcon(status: string) {
   switch (status) {
     case "Accepted":
@@ -157,6 +182,15 @@ export default function SubmissionDetailPage() {
     }
   };
 
+  const deadlineDate = data.form.deadline ? new Date(data.form.deadline) : null;
+  const now = new Date();
+  const diffDays = deadlineDate
+    ? Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  const isExpired = diffDays !== null && diffDays < 0;
+  const isExpiringSoon = diffDays !== null && diffDays <= 3 && diffDays >= 0;
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       {/* Header */}
@@ -220,9 +254,8 @@ export default function SubmissionDetailPage() {
                     </div>
                     {index !== data.workflow.length - 1 && (
                       <div
-                        className={`w-1 h-12 mt-1 ${
-                          step.status === "Completed" ? "bg-emerald-300" : "bg-slate-200"
-                        }`}
+                        className={`w-1 h-12 mt-1 ${step.status === "Completed" ? "bg-emerald-300" : "bg-slate-200"
+                          }`}
                       />
                     )}
                   </div>
@@ -241,15 +274,14 @@ export default function SubmissionDetailPage() {
                           </p>
                         </div>
                         <Badge
-                          className={`text-xs font-semibold ${
-                            step.status === "Completed"
-                              ? step.actionStatus === "Rejected"
-                                ? "bg-rose-100 text-rose-700 border-rose-200"
-                                : "bg-emerald-100 text-emerald-700 border-emerald-200"
-                              : step.status === "Current"
-                                ? "bg-indigo-100 text-indigo-700 border-indigo-200"
-                                : "bg-slate-100 text-slate-600 border-slate-200"
-                          } border`}
+                          className={`text-xs font-semibold ${step.status === "Completed"
+                            ? step.actionStatus === "Rejected"
+                              ? "bg-rose-100 text-rose-700 border-rose-200"
+                              : "bg-emerald-100 text-emerald-700 border-emerald-200"
+                            : step.status === "Current"
+                              ? "bg-indigo-100 text-indigo-700 border-indigo-200"
+                              : "bg-slate-100 text-slate-600 border-slate-200"
+                            } border`}
                         >
                           {step.status === "Current" && "In Review"}
                           {step.status === "Pending" && "Pending"}
@@ -291,18 +323,18 @@ export default function SubmissionDetailPage() {
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              
+
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Name
               </p>
               <p className="text-sm font-medium text-slate-900">{data.student.name}</p>
-            
-            
+
+
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Email
               </p>
               <p className="text-sm text-slate-700">{data.student.email}</p>
-  
+
             </div>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -319,12 +351,29 @@ export default function SubmissionDetailPage() {
                 </p>
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-amber-600" />
-                  <p className={`text-sm font-medium ${data.form.isExpired ? "text-rose-600" : "text-slate-900"}`}>
-                    {formatDate(data.form.deadline)}
+
+                  <p
+                    className={`text-sm font-medium ${isExpired
+                        ? "text-rose-600"
+                        : isExpiringSoon
+                          ? "text-amber-600"
+                          : "text-slate-900"
+                      }`}
+                  >
+                    {deadlineDate
+                      ? formatDate(data.form.deadline)
+                      : "No deadline set"}
                   </p>
-                  {data.form.isExpired && (
+
+                  {isExpired && (
                     <Badge className="bg-rose-100 text-rose-700 border-rose-200 text-xs">
-                      Expired
+                      Closed
+                    </Badge>
+                  )}
+
+                  {!isExpired && isExpiringSoon && (
+                    <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs">
+                      Closing Soon
                     </Badge>
                   )}
                 </div>
@@ -336,10 +385,10 @@ export default function SubmissionDetailPage() {
 
       {/* Student Info Card */}
       <Card className="shadow-card border-0 overflow-hidden">
-        
+
         <CardContent className="pt-6">
           <div className="space-y-3">
-            
+
           </div>
         </CardContent>
       </Card>
@@ -373,7 +422,7 @@ export default function SubmissionDetailPage() {
                   <p className="text-sm font-medium text-slate-900 break-words">
                     {field.value || "—"}
                   </p>
-                  
+
                 </motion.div>
               ))}
             </div>
@@ -381,7 +430,7 @@ export default function SubmissionDetailPage() {
         </CardContent>
       </Card>
 
-      
+
     </motion.div>
   );
 }
