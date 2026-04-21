@@ -1,3 +1,4 @@
+// app/pending-approvals/page.tsx
 'use client';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -6,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import {
   Search, CheckCircle, XCircle, CornerDownLeft, Eye, Download,
   ChevronDown, X, Filter, Loader2, AlertTriangle, Clock, Zap,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -32,6 +34,166 @@ interface Stats {
   canActNow: number;
   expired: number;
   urgent: number;
+}
+
+// ─── Pagination Component ─────────────────────────────────────────────────────
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
+function Pagination({
+  total,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  total: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (p: number) => void;
+  onPageSizeChange: (s: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to   = Math.min(page * pageSize, total);
+
+  // Build page number buttons with ellipsis
+  const pages: (number | '...')[] = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    if (page > 3)             pages.push('...');
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i);
+    if (page < totalPages - 2) pages.push('...');
+    pages.push(totalPages);
+  }
+
+  const btnBase = "flex items-center justify-center h-8 rounded-lg text-xs font-medium transition-all border";
+
+  return (
+    <div className="flex items-center justify-between flex-wrap gap-3 px-4 py-3 border-t"
+      style={{ borderColor: 'var(--border)' }}>
+
+      {/* Left: rows info + page size selector */}
+      <div className="flex items-center gap-3">
+        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          {total === 0 ? 'No results' : `${from}–${to} of ${total}`}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Rows:</span>
+          <div className="relative">
+            <select
+              value={pageSize}
+              onChange={e => { onPageSizeChange(Number(e.target.value)); onPageChange(1); }}
+              className="text-xs pl-2 pr-6 py-1.5 rounded-lg border appearance-none cursor-pointer"
+              style={{
+                background: 'var(--card)', color: 'var(--text)',
+                borderColor: 'var(--border)', outline: 'none',
+              }}
+            >
+              {PAGE_SIZE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
+              style={{ color: 'var(--text-muted)' }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Right: page buttons */}
+      <div className="flex items-center gap-1">
+        {/* First */}
+        <button
+          onClick={() => onPageChange(1)}
+          disabled={page === 1}
+          className={`${btnBase} w-8`}
+          style={{
+            background: 'var(--card)', borderColor: 'var(--border)',
+            color: page === 1 ? 'var(--text-muted)' : 'var(--text)',
+            opacity: page === 1 ? 0.4 : 1, cursor: page === 1 ? 'not-allowed' : 'pointer',
+          }}
+          title="First page"
+        >
+          <ChevronsLeft className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Prev */}
+        <button
+          onClick={() => onPageChange(page - 1)}
+          disabled={page === 1}
+          className={`${btnBase} w-8`}
+          style={{
+            background: 'var(--card)', borderColor: 'var(--border)',
+            color: page === 1 ? 'var(--text-muted)' : 'var(--text)',
+            opacity: page === 1 ? 0.4 : 1, cursor: page === 1 ? 'not-allowed' : 'pointer',
+          }}
+          title="Previous page"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Page numbers */}
+        {pages.map((p, i) =>
+          p === '...' ? (
+            <span
+              key={`ellipsis-${i}`}
+              className="flex items-center justify-center w-8 h-8 text-xs"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              ···
+            </span>
+          ) : (
+            <button
+              key={p}
+              onClick={() => onPageChange(p as number)}
+              className={`${btnBase} w-8`}
+              style={{
+                background:  p === page ? '#2563EB' : 'var(--card)',
+                borderColor: p === page ? '#2563EB' : 'var(--border)',
+                color:       p === page ? '#fff'     : 'var(--text)',
+                cursor: 'pointer',
+                fontWeight: p === page ? 700 : 500,
+              }}
+            >
+              {p}
+            </button>
+          )
+        )}
+
+        {/* Next */}
+        <button
+          onClick={() => onPageChange(page + 1)}
+          disabled={page === totalPages}
+          className={`${btnBase} w-8`}
+          style={{
+            background: 'var(--card)', borderColor: 'var(--border)',
+            color: page === totalPages ? 'var(--text-muted)' : 'var(--text)',
+            opacity: page === totalPages ? 0.4 : 1,
+            cursor: page === totalPages ? 'not-allowed' : 'pointer',
+          }}
+          title="Next page"
+        >
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Last */}
+        <button
+          onClick={() => onPageChange(totalPages)}
+          disabled={page === totalPages}
+          className={`${btnBase} w-8`}
+          style={{
+            background: 'var(--card)', borderColor: 'var(--border)',
+            color: page === totalPages ? 'var(--text-muted)' : 'var(--text)',
+            opacity: page === totalPages ? 0.4 : 1,
+            cursor: page === totalPages ? 'not-allowed' : 'pointer',
+          }}
+          title="Last page"
+        >
+          <ChevronsRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // ─── Modals ───────────────────────────────────────────────────────────────────
@@ -129,22 +291,25 @@ const DEADLINE_OPTIONS = ['All', 'Today', 'Tomorrow', 'This Week', 'Expired'];
 export default function PendingApprovalsPage() {
   const router = useRouter();
 
-  const [submissions, setSubmissions] = useState<PendingSubmission[]>([]);
-  const [stats, setStats] = useState<Stats>({ total: 0, canActNow: 0, expired: 0, urgent: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [submissions,   setSubmissions]   = useState<PendingSubmission[]>([]);
+  const [stats,         setStats]         = useState<Stats>({ total: 0, canActNow: 0, expired: 0, urgent: 0 });
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState<string | null>(null);
 
-  const [search, setSearch] = useState('');
+  const [search,         setSearch]         = useState('');
   const [deadlineFilter, setDeadlineFilter] = useState('All');
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected,       setSelected]       = useState<string[]>([]);
 
-  // Per-row action state: { submissionId: 'approve' | 'reject' | 'sendback' | null }
+  // ── Pagination state ──────────────────────────────────────────────────────
+  const [page,     setPage]     = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
-  const [rejectModal, setRejectModal] = useState<string | null>(null);
+  const [rejectModal,   setRejectModal]   = useState<string | null>(null);
   const [sendBackModal, setSendBackModal] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ msg: string; color: string } | null>(null);
+  const [toast,         setToast]         = useState<{ msg: string; color: string } | null>(null);
 
-  // ── Fetch ───────────────────────────────────────────────────────────────────
+  // ── Fetch ─────────────────────────────────────────────────────────────────
   const fetchPending = useCallback(async () => {
     try {
       setLoading(true);
@@ -167,14 +332,18 @@ export default function PendingApprovalsPage() {
 
   useEffect(() => { fetchPending(); }, [fetchPending]);
 
-  // ── Filter ──────────────────────────────────────────────────────────────────
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setPage(1); }, [search, deadlineFilter]);
+
+  // ── Filter ────────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today    = new Date(); today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-    const weekEnd = new Date(today); weekEnd.setDate(today.getDate() + 7);
+    const weekEnd  = new Date(today); weekEnd.setDate(today.getDate() + 7);
 
     return submissions.filter(s => {
-      const matchSearch = !search ||
+      const matchSearch =
+        !search ||
         s.studentName.toLowerCase().includes(search.toLowerCase()) ||
         s.formTitle.toLowerCase().includes(search.toLowerCase()) ||
         s.email.toLowerCase().includes(search.toLowerCase());
@@ -182,27 +351,42 @@ export default function PendingApprovalsPage() {
       const deadline = new Date(s.deadline); deadline.setHours(0, 0, 0, 0);
       const matchDeadline =
         deadlineFilter === 'All' ||
-        (deadlineFilter === 'Today' && deadline.getTime() === today.getTime()) ||
-        (deadlineFilter === 'Tomorrow' && deadline.getTime() === tomorrow.getTime()) ||
+        (deadlineFilter === 'Today'     && deadline.getTime() === today.getTime()) ||
+        (deadlineFilter === 'Tomorrow'  && deadline.getTime() === tomorrow.getTime()) ||
         (deadlineFilter === 'This Week' && deadline >= today && deadline <= weekEnd) ||
-        (deadlineFilter === 'Expired' && deadline < today);
+        (deadlineFilter === 'Expired'   && deadline < today);
 
       return matchSearch && matchDeadline;
     });
   }, [submissions, search, deadlineFilter]);
 
-  const allSelected = filtered.length > 0 && filtered.every(s => selected.includes(s.id));
+  // ── Paginated slice ───────────────────────────────────────────────────────
+  const paginated = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
+  // ── Selection helpers (operate on filtered, not paginated) ────────────────
+  const allPageSelected = paginated.length > 0 && paginated.every(s => selected.includes(s.id));
+
   const toggleSelect = (id: string) =>
     setSelected(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  const toggleAll = () => setSelected(allSelected ? [] : filtered.map(s => s.id));
 
-  // ── Toast ───────────────────────────────────────────────────────────────────
+  // Toggles only current page rows
+  const toggleAll = () =>
+    setSelected(prev =>
+      allPageSelected
+        ? prev.filter(id => !paginated.some(s => s.id === id))
+        : [...new Set([...prev, ...paginated.map(s => s.id)])]
+    );
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
   const showToast = (msg: string, color = '#22C55E') => {
     setToast({ msg, color });
     setTimeout(() => setToast(null), 3500);
   };
 
-  // ── Action caller ───────────────────────────────────────────────────────────
+  // ── Action caller ─────────────────────────────────────────────────────────
   const callAction = async (
     submissionId: string,
     action: 'approve' | 'reject' | 'sendback',
@@ -218,11 +402,10 @@ export default function PendingApprovalsPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Action failed');
 
-      if (action === 'approve') showToast('Form approved and forwarded.');
-      else if (action === 'reject') showToast('Form rejected. Student notified.', '#EF4444');
-      else showToast('Form sent back for correction.', '#F59E0B');
+      if (action === 'approve')  showToast('Form approved and forwarded.');
+      else if (action === 'reject')   showToast('Form rejected. Student notified.', '#EF4444');
+      else                            showToast('Form sent back for correction.', '#F59E0B');
 
-      // Remove from list optimistically
       setSubmissions(prev => prev.filter(s => s.id !== submissionId));
       setSelected(prev => prev.filter(id => id !== submissionId));
     } catch (e) {
@@ -232,8 +415,8 @@ export default function PendingApprovalsPage() {
     }
   };
 
-  const handleApprove = (id: string) => callAction(id, 'approve');
-  const handleReject = (remark: string) => {
+  const handleApprove  = (id: string) => callAction(id, 'approve');
+  const handleReject   = (remark: string) => {
     if (!rejectModal) return;
     const id = rejectModal;
     setRejectModal(null);
@@ -246,17 +429,13 @@ export default function PendingApprovalsPage() {
     callAction(id, 'sendback', remark);
   };
 
-  // ── Bulk actions (approve only — reject needs a remark per submission) ──────
   const handleBulkApprove = async () => {
-    const actable = selected.filter(id => {
-      const s = submissions.find(s => s.id === id);
-      return s?.canAct;
-    });
+    const actable = selected.filter(id => submissions.find(s => s.id === id)?.canAct);
     await Promise.all(actable.map(id => callAction(id, 'approve')));
     setSelected([]);
   };
 
-  // ── Export CSV ──────────────────────────────────────────────────────────────
+  // ── Export CSV ────────────────────────────────────────────────────────────
   const exportCSV = () => {
     const csv = [
       'Student,Email,Form,Submitted,Current Verifier,Deadline',
@@ -265,36 +444,32 @@ export default function PendingApprovalsPage() {
       ),
     ].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'pending-approvals.csv'; a.click();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'pending-approvals.csv'; a.click();
   };
 
-  // ── Loading state ───────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-muted)' }} />
-          <span className="ml-2 text-sm" style={{ color: 'var(--text-muted)' }}>Loading pending approvals...</span>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  // ── Loading / Error states ────────────────────────────────────────────────
+  if (loading) return (
+    <DashboardLayout>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-muted)' }} />
+        <span className="ml-2 text-sm" style={{ color: 'var(--text-muted)' }}>Loading pending approvals...</span>
+      </div>
+    </DashboardLayout>
+  );
 
-  // ── Error state ─────────────────────────────────────────────────────────────
-  if (error) {
-    return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center h-64 gap-3">
-          <AlertTriangle className="w-8 h-8 text-red-400" />
-          <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{error}</p>
-          <button onClick={fetchPending} className="btn-outline text-sm">Retry</button>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  if (error) return (
+    <DashboardLayout>
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <AlertTriangle className="w-8 h-8 text-red-400" />
+        <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{error}</p>
+        <button onClick={fetchPending} className="btn-outline text-sm">Retry</button>
+      </div>
+    </DashboardLayout>
+  );
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <DashboardLayout>
       {/* Toast */}
@@ -330,9 +505,7 @@ export default function PendingApprovalsPage() {
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
             {stats.canActNow} form{stats.canActNow !== 1 ? 's' : ''} awaiting your action
             {stats.urgent > 0 && (
-              <span className="ml-2 text-xs font-semibold text-amber-500">
-                · {stats.urgent} urgent
-              </span>
+              <span className="ml-2 text-xs font-semibold text-amber-500">· {stats.urgent} urgent</span>
             )}
           </p>
         </div>
@@ -346,17 +519,16 @@ export default function PendingApprovalsPage() {
         </div>
       </div>
 
-      {/* Mini stat strip */}
+      {/* Stat strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         {[
-          { label: 'Total Pending', value: stats.total, color: '#3B82F6', bg: '#EFF6FF' },
-          { label: 'Act Now', value: stats.canActNow, color: '#22C55E', bg: '#F0FDF4', icon: Zap },
-          { label: 'Urgent (≤2d)', value: stats.urgent, color: '#F59E0B', bg: '#FFFBEB', icon: Clock },
-          { label: 'Past Deadline', value: stats.expired, color: '#EF4444', bg: '#FFF5F5', icon: AlertTriangle },
+          { label: 'Total Pending', value: stats.total,    color: '#3B82F6', bg: '#EFF6FF' },
+          { label: 'Act Now',       value: stats.canActNow, color: '#22C55E', bg: '#F0FDF4', icon: Zap },
+          { label: 'Urgent (≤2d)',  value: stats.urgent,   color: '#F59E0B', bg: '#FFFBEB', icon: Clock },
+          { label: 'Past Deadline', value: stats.expired,  color: '#EF4444', bg: '#FFF5F5', icon: AlertTriangle },
         ].map(({ label, value, color, bg, icon: Icon }) => (
           <div key={label} className="content-card p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: bg }}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: bg }}>
               {Icon
                 ? <Icon className="w-4 h-4" style={{ color }} />
                 : <CheckCircle className="w-4 h-4" style={{ color }} />}
@@ -372,7 +544,6 @@ export default function PendingApprovalsPage() {
       {/* Filters */}
       <div className="content-card mb-5">
         <div className="p-4 flex flex-wrap gap-3 items-end">
-          {/* Search */}
           <div className="relative flex-1 min-w-48">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
             <input
@@ -383,8 +554,6 @@ export default function PendingApprovalsPage() {
               className="form-input pl-9"
             />
           </div>
-
-          {/* Deadline */}
           <div className="relative min-w-36">
             <select
               value={deadlineFilter}
@@ -396,13 +565,8 @@ export default function PendingApprovalsPage() {
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
               style={{ color: 'var(--text-muted)' }} />
           </div>
-
-          {/* Clear */}
           {(search || deadlineFilter !== 'All') && (
-            <button
-              onClick={() => { setSearch(''); setDeadlineFilter('All'); }}
-              className="btn-outline flex items-center gap-1.5"
-            >
+            <button onClick={() => { setSearch(''); setDeadlineFilter('All'); }} className="btn-outline flex items-center gap-1.5">
               <X className="w-4 h-4" /> Clear
             </button>
           )}
@@ -411,8 +575,7 @@ export default function PendingApprovalsPage() {
         {/* Bulk actions */}
         {selected.length > 0 && (
           <div className="px-4 pb-4 flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-semibold px-3 py-1.5 rounded-lg"
-              style={{ background: '#EFF6FF', color: '#1D4ED8' }}>
+            <span className="text-sm font-semibold px-3 py-1.5 rounded-lg" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>
               {selected.length} selected
             </span>
             <button onClick={handleBulkApprove} className="btn-success" style={{ padding: '7px 14px' }}>
@@ -434,9 +597,10 @@ export default function PendingApprovalsPage() {
                 <th style={{ width: 44 }}>
                   <input
                     type="checkbox"
-                    checked={allSelected}
+                    checked={allPageSelected}
                     onChange={toggleAll}
                     className="w-4 h-4 rounded accent-blue-500 cursor-pointer"
+                    title="Select all on this page"
                   />
                 </th>
                 <th>Student</th>
@@ -448,29 +612,28 @@ export default function PendingApprovalsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {paginated.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12">
                     <div className="flex flex-col items-center gap-2">
                       <Filter className="w-10 h-10" style={{ color: 'var(--text-muted)' }} />
                       <p className="font-semibold" style={{ color: 'var(--text)' }}>No pending forms found</p>
                       <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                        {search || deadlineFilter !== 'All' ? 'Try adjusting your filters' : 'You\'re all caught up!'}
+                        {search || deadlineFilter !== 'All' ? 'Try adjusting your filters' : "You're all caught up!"}
                       </p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                filtered.map(s => {
-                  const now = new Date();
+                paginated.map(s => {
+                  const now      = new Date();
                   const deadline = new Date(s.deadline);
-                  const diffMs = deadline.getTime() - now.getTime();
+                  const diffMs   = deadline.getTime() - now.getTime();
                   const isUrgent = !s.isExpired && diffMs > 0 && diffMs < 86400000 * 2;
                   const isActLoading = !!actionLoading[s.id];
 
                   return (
                     <tr key={s.id}>
-                      {/* Checkbox */}
                       <td>
                         <input
                           type="checkbox"
@@ -479,8 +642,6 @@ export default function PendingApprovalsPage() {
                           className="w-4 h-4 rounded accent-blue-500 cursor-pointer"
                         />
                       </td>
-
-                      {/* Student */}
                       <td>
                         <div className="flex items-center gap-2.5">
                           <div
@@ -495,27 +656,19 @@ export default function PendingApprovalsPage() {
                           </div>
                         </div>
                       </td>
-
-                      {/* Form */}
                       <td>
                         <p className="font-medium text-sm" style={{ color: 'var(--text)' }}>{s.formTitle}</p>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                           Level {s.currentLevel} of {s.totalLevels}
                         </p>
                       </td>
-
-                      {/* Submitted date */}
                       <td className="text-sm" style={{ color: 'var(--text-muted)' }}>
                         {new Date(s.submissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                       </td>
-
-                      {/* Current verifier */}
                       <td>
                         <p className="text-sm" style={{ color: 'var(--text)' }}>{s.currentVerifier}</p>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{s.currentVerifierRole}</p>
                       </td>
-
-                      {/* Deadline badge */}
                       <td>
                         <span className={`badge ${s.isExpired ? 'badge-rejected' : isUrgent ? 'badge-pending' : 'badge-accepted'}`}>
                           {s.isExpired
@@ -523,11 +676,8 @@ export default function PendingApprovalsPage() {
                             : new Date(s.deadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                         </span>
                       </td>
-
-                      {/* Actions */}
                       <td>
                         <div className="flex items-center gap-1.5">
-                          {/* View */}
                           <Link
                             href={`/form-details/${s.id}`}
                             title="View Details"
@@ -538,11 +688,8 @@ export default function PendingApprovalsPage() {
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </Link>
-
-                          {/* Only show action buttons if it's this verifier's turn */}
                           {s.canAct && (
                             <>
-                              {/* Approve */}
                               <button
                                 onClick={() => handleApprove(s.id)}
                                 disabled={isActLoading}
@@ -552,12 +699,8 @@ export default function PendingApprovalsPage() {
                                 onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = '#DCFCE7'}
                                 onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = '#F0FDF4'}
                               >
-                                {isActLoading
-                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  : <CheckCircle className="w-3.5 h-3.5" />}
+                                {isActLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
                               </button>
-
-                              {/* Reject */}
                               <button
                                 onClick={() => setRejectModal(s.id)}
                                 disabled={isActLoading}
@@ -569,8 +712,6 @@ export default function PendingApprovalsPage() {
                               >
                                 <XCircle className="w-3.5 h-3.5" />
                               </button>
-
-                              {/* Send Back */}
                               <button
                                 onClick={() => setSendBackModal(s.id)}
                                 disabled={isActLoading}
@@ -593,6 +734,15 @@ export default function PendingApprovalsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* ── Pagination ───────────────────────────────────────── */}
+        <Pagination
+          total={filtered.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
     </DashboardLayout>
   );

@@ -1,19 +1,22 @@
+// components/verifier/Navbar.tsx
 'use client';
+
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Bell, Sun, Moon, Search, ChevronRight, User, LogOut } from 'lucide-react';
+import { Bell, Sun, Moon, ChevronRight, User, LogOut, CheckCheck } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
 import { useApp } from '@/lib/app-context';
+import { useVerifierNotifications } from '@/hooks/useVerifierNotifications';
 
 const breadcrumbMap: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/assigned-forms': 'All Assigned Forms',
-  '/pending-approvals': 'Pending Approvals',
-  '/all-submissions': 'All Submissions',
-  '/activity': 'Activity',
-  '/profile': 'Profile',
-  '/form-details': 'Form Details',
+  '/dashboard':        'Dashboard',
+  '/assigned-forms':   'All Assigned Forms',
+  '/pending-approvals':'Pending Approvals',
+  '/all-submissions':  'All Submissions',
+  '/activity':         'Activity',
+  '/profile':          'Profile',
+  '/form-details':     'Form Details',
 };
 
 function getBreadcrumbs(path: string) {
@@ -28,29 +31,46 @@ function getBreadcrumbs(path: string) {
   return crumbs;
 }
 
-export default function Navbar() {
-  const { theme, toggle } = useTheme();
-  const { currentUser, logout } = useApp();
-  const pathname = usePathname();
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showNotif, setShowNotif] = useState(false);
+type VerifierNotifType = "new_submission" | "resubmission" | "deadline" | "info";
 
-  const crumbs = getBreadcrumbs(pathname);
+const notifTypeConfig: Record<VerifierNotifType, { dot: string; bg: string; emoji: string }> = {
+  new_submission: { dot: '#3B82F6', bg: '#EFF6FF', emoji: '📋' },
+  resubmission:   { dot: '#22C55E', bg: '#F0FDF4', emoji: '🔄' },
+  deadline:       { dot: '#F59E0B', bg: '#FFFBEB', emoji: '⏰' },
+  info:           { dot: '#8B5CF6', bg: '#F5F3FF', emoji: 'ℹ️' },
+};
+
+export default function Navbar() {
+  const { theme, toggle }   = useTheme();
+  const { currentUser, logout } = useApp();
+  const pathname            = usePathname();
+  const router              = useRouter();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotif,    setShowNotif]    = useState(false);
+
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    markRead,
+    markAllRead,
+  } = useVerifierNotifications();
+
+  const crumbs    = getBreadcrumbs(pathname);
   const pageTitle = crumbs[crumbs.length - 1]?.label || 'Dashboard';
 
-  // Derive display values from currentUser
-  const displayName = currentUser?.name ?? 'Verifier';
-  const displayEmail = currentUser?.email ?? '';
-  const displayRole = currentUser?.role ?? '';
+  const displayName     = currentUser?.name     ?? 'Verifier';
+  const displayEmail    = currentUser?.email    ?? '';
+  const displayRole     = currentUser?.role     ?? '';
   const displayInitials = currentUser?.initials
-    ?? displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    ?? displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
 
   return (
     <header
       className="sticky top-0 z-30 flex items-center gap-4 px-6 border-b"
       style={{ background: 'var(--card)', borderColor: 'var(--border)', height: 64 }}
     >
-      {/* ── Left: Breadcrumbs ─────────────────────────────────────── */}
+      {/* ── Breadcrumbs ────────────────────────────────────────── */}
       <div className="flex items-center gap-1.5 flex-1 min-w-0">
         {crumbs.map((c, i) => (
           <span key={c.href} className="flex items-center gap-1.5">
@@ -68,7 +88,7 @@ export default function Navbar() {
         ))}
       </div>
 
-      {/* ── Center: Page title ────────────────────────────────────── */}
+      {/* ── Page title (center) ─────────────────────────────────── */}
       <h1
         className="hidden md:block text-base font-bold absolute left-1/2 -translate-x-1/2"
         style={{ color: 'var(--text)' }}
@@ -76,11 +96,10 @@ export default function Navbar() {
         {pageTitle}
       </h1>
 
-      {/* ── Right ────────────────────────────────────────────────── */}
+      {/* ── Right controls ──────────────────────────────────────── */}
       <div className="flex items-center gap-2">
 
-
-        {/* Notifications */}
+        {/* ── Notification Bell ───────────────────────────────── */}
         <div className="relative">
           <button
             className="icon-btn relative"
@@ -88,43 +107,130 @@ export default function Navbar() {
             title="Notifications"
           >
             <Bell className="w-4 h-4" />
-            <span className="notif-dot" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white animate-pulse">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
 
           {showNotif && (
             <div
-              className="absolute right-0 top-12 w-80 rounded-2xl shadow-card-hover z-50 overflow-hidden animate-scale-in"
+              className="absolute right-0 top-12 w-[340px] rounded-2xl shadow-card-hover z-50 overflow-hidden animate-scale-in"
               style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
             >
+              {/* Header */}
               <div
                 className="px-4 py-3 border-b flex items-center justify-between"
                 style={{ borderColor: 'var(--border)' }}
               >
-                <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Notifications</span>
-                <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                  style={{ background: '#EFF6FF', color: '#1D4ED8' }}>3 New</span>
-              </div>
-              {[
-                { msg: 'New submission: No Dues Certificate', time: '2m ago', color: '#3B82F6' },
-                { msg: 'Arjun Verma resubmitted Leave Application', time: '1h ago', color: '#22C55E' },
-                { msg: 'Deadline tomorrow: Scholarship Form', time: '2h ago', color: '#F59E0B' },
-              ].map((n, i) => (
-                <div
-                  key={i}
-                  className="px-4 py-3 border-b flex gap-3 items-start hover:bg-blue-50/5 cursor-pointer transition-colors"
-                  style={{ borderColor: 'var(--border)' }}
-                >
-                  <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ background: n.color }} />
-                  <div>
-                    <p className="text-sm" style={{ color: 'var(--text)' }}>{n.msg}</p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{n.time}</p>
-                  </div>
+                <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>
+                  🔔 Notifications
+                </span>
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <>
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                        style={{ background: '#EFF6FF', color: '#1D4ED8' }}
+                      >
+                        {unreadCount} New
+                      </span>
+                      <button
+                        onClick={markAllRead}
+                        className="flex items-center gap-1 text-xs font-medium"
+                        style={{ color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer' }}
+                        title="Mark all as read"
+                      >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  )}
                 </div>
-              ))}
-              <div className="px-4 py-3 text-center">
-                <button className="text-sm font-medium"
-                  style={{ color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer' }}>
-                  View all notifications
+              </div>
+
+              {/* List */}
+              <div className="max-h-[360px] overflow-y-auto divide-y" style={{ borderColor: 'var(--border)' }}>
+                {/* Skeleton */}
+                {loading && Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="px-4 py-3 flex gap-3 animate-pulse">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 w-3/4 rounded bg-gray-200" />
+                      <div className="h-2 w-full rounded bg-gray-100" />
+                    </div>
+                  </div>
+                ))}
+
+                {/* Empty */}
+                {!loading && notifications.length === 0 && (
+                  <div className="py-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+                    🎉 You're all caught up!
+                  </div>
+                )}
+
+                {/* Items — show latest 5 in dropdown */}
+                {!loading && notifications.slice(0, 5).map((n) => {
+                  const cfg = notifTypeConfig[n.type as VerifierNotifType] ?? notifTypeConfig.info;
+                  return (
+                    <div
+                      key={n.id}
+                      onClick={() => {
+                        markRead(n.id);
+                        if (n.submissionId) router.push(`/pending-approvals/${n.submissionId}`);
+                        setShowNotif(false);
+                      }}
+                      className="px-4 py-3 flex gap-3 items-start cursor-pointer transition-colors"
+                      style={{
+                        background: n.read ? 'transparent' : cfg.bg,
+                        borderColor: 'var(--border)',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                    >
+                      {/* Icon circle */}
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0"
+                        style={{ background: cfg.bg }}
+                      >
+                        {cfg.emoji}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
+                          {n.title}
+                        </p>
+                        <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--text-muted)' }}>
+                          {n.description}
+                        </p>
+                        <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                          {new Date(n.time).toLocaleString('en-IN', {
+                            day: 'numeric', month: 'short',
+                            hour: '2-digit', minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+
+                      {/* Unread dot */}
+                      {!n.read && (
+                        <div
+                          className="w-2 h-2 rounded-full mt-1.5 shrink-0"
+                          style={{ background: cfg.dot }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div className="px-4 py-3 text-center border-t" style={{ borderColor: 'var(--border)' }}>
+                <button
+                  className="text-sm font-medium"
+                  style={{ color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer' }}
+                  onClick={() => { router.push('/notifications'); setShowNotif(false); }}
+                >
+                  View all notifications →
                 </button>
               </div>
             </div>
@@ -147,7 +253,6 @@ export default function Navbar() {
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg)')}
             onMouseLeave={e => { if (!showUserMenu) e.currentTarget.style.background = 'transparent'; }}
           >
-            {/* Avatar */}
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
               style={{ background: 'linear-gradient(135deg, #1E3A8A, #3B82F6)' }}
@@ -161,15 +266,9 @@ export default function Navbar() {
               className="absolute right-0 top-12 w-56 rounded-xl shadow-card-hover z-50 overflow-hidden animate-scale-in"
               style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
             >
-              {/* User info */}
               <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
-                <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>
-                  {displayName}
-                </p>
-                <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
-                  {displayEmail}
-                </p>
-                {/* Role badge */}
+                <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{displayName}</p>
+                <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{displayEmail}</p>
                 <span
                   className="inline-block mt-1.5 text-xs font-semibold px-2 py-0.5 rounded-full"
                   style={{ background: '#EFF6FF', color: '#1D4ED8' }}
@@ -177,8 +276,6 @@ export default function Navbar() {
                   {displayRole}
                 </span>
               </div>
-
-              {/* Profile */}
               <Link
                 href="/profile"
                 onClick={() => setShowUserMenu(false)}
@@ -187,8 +284,6 @@ export default function Navbar() {
               >
                 <User className="w-4 h-4" /> Profile
               </Link>
-
-              {/* Logout — calls AuthService.logout() via context */}
               <button
                 onClick={() => { setShowUserMenu(false); logout(); }}
                 className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium transition-colors hover:bg-red-50/10 text-red-400"
@@ -203,10 +298,7 @@ export default function Navbar() {
 
       {/* Click-outside backdrop */}
       {(showUserMenu || showNotif) && (
-        <div
-          className="fixed inset-0 z-20"
-          onClick={() => { setShowUserMenu(false); setShowNotif(false); }}
-        />
+        <div className="fixed inset-0 z-20" onClick={() => { setShowUserMenu(false); setShowNotif(false); }} />
       )}
     </header>
   );
