@@ -173,8 +173,8 @@ const department =
       </Card>
 
       <div className="flex gap-3">
-        <Button variant="outline" className="rounded-xl">Edit Profile</Button>
-        <Button variant="destructive" onClick={handleLogout} className="rounded-xl">
+        {/* <Button variant="outline" className="rounded-xl">Edit Profile</Button> */}
+        <Button variant="destructive" onClick={handleLogout} className="rounded-xl border-2 border-red-400 text-red-500 hover:bg-red-100">
           <LogOut className="mr-2 h-4 w-4" /> Logout
         </Button>
       </div>

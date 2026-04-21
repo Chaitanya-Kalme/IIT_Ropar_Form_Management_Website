@@ -85,7 +85,7 @@ export default function FormDashboardPage() {
 
         const json: DashboardData = await res.json();
         setData(json);
-        setCurrentPage(1); // reset page on fresh load
+        setCurrentPage(1);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Something went wrong');
       } finally {
@@ -95,6 +95,105 @@ export default function FormDashboardPage() {
 
     fetchDashboard();
   }, [id]);
+
+  // ── Export CSV ────────────────────────────────────────────────────────────
+  const exportCSV = () => {
+    if (!data) return;
+    const csv = [
+      'Student,Email,Submitted,Status,Current Verifier,Level',
+      ...data.submissions.map(s =>
+        `"${s.studentName}","${s.email}",` +
+        `"${new Date(s.submissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}",` +
+        `"${s.status}","${s.currentVerifier}","L${s.currentLevel}"`
+      ),
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${data.form.title.replace(/\s+/g, '_')}_submissions.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // ── Export PDF ────────────────────────────────────────────────────────────
+  const exportPDF = () => {
+    if (!data) return;
+    const { form, submissions } = data;
+
+    const rows = submissions.map(s => `
+      <tr>
+        <td>
+          <strong>${s.studentName}</strong><br/>
+          <span class="sub">${s.email}</span>
+        </td>
+        <td>${new Date(s.submissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+        <td><span class="badge ${s.status.toLowerCase()}">${s.status}</span></td>
+        <td>${s.currentVerifier}</td>
+        <td>L${s.currentLevel}</td>
+      </tr>`).join('');
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>${form.title} — Submissions</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 12px; color: #1e293b; padding: 28px; }
+    .header { margin-bottom: 6px; }
+    h1 { font-size: 18px; font-weight: 700; }
+    .desc { color: #64748b; font-size: 11px; margin-top: 3px; }
+    .meta { display: flex; gap: 16px; margin: 12px 0 20px; font-size: 11px; color: #64748b; }
+    .meta span { background: #f1f5f9; padding: 3px 10px; border-radius: 99px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f1f5f9; text-align: left; padding: 8px 10px; font-size: 11px;
+         text-transform: uppercase; letter-spacing: .5px; color: #475569;
+         border-bottom: 2px solid #e2e8f0; }
+    td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+    .sub { color: #94a3b8; font-size: 11px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+    .badge.accepted { background: #dcfce7; color: #16a34a; }
+    .badge.pending  { background: #fef9c3; color: #b45309; }
+    .badge.rejected { background: #fee2e2; color: #dc2626; }
+    .badge.expired  { background: #f1f5f9; color: #64748b; }
+    .footer { margin-top: 20px; font-size: 11px; color: #94a3b8; text-align: right; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>${form.title}</h1>
+    <p class="desc">${form.description}</p>
+  </div>
+  <div class="meta">
+    <span>Deadline: ${new Date(form.deadline).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}${form.isExpired ? ' (Expired)' : ''}</span>
+    <span>Total: ${submissions.length} submissions</span>
+    <span>Exported: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Student</th>
+        <th>Submitted</th>
+        <th>Status</th>
+        <th>Current Verifier</th>
+        <th>Level</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <p class="footer">Generated from the Verifier Dashboard</p>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 500);
+  };
 
   // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) {
@@ -144,24 +243,17 @@ export default function FormDashboardPage() {
     setCurrentPage(page);
   };
 
-  // Build page number array with ellipsis: [1, ..., 4, 5, 6, ..., 12]
-  const getPageNumbers = () => {
+  const getPageNumbers = (): (number | '...')[] => {
     const pages: (number | '...')[] = [];
-
     if (totalPages <= 5) {
-      // Show all if 5 or fewer total pages
       for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else if (currentPage <= 3) {
-      // Near start: 1 2 3 … last
       pages.push(1, 2, 3, '...', totalPages);
     } else if (currentPage >= totalPages - 2) {
-      // Near end: 1 … last-2 last-1 last
       pages.push(1, '...', totalPages - 2, totalPages - 1, totalPages);
     } else {
-      // Middle: 1 … current … last
       pages.push(1, '...', currentPage, '...', totalPages);
     }
-
     return pages;
   };
 
@@ -210,10 +302,10 @@ export default function FormDashboardPage() {
         </div>
 
         <div className="export-group">
-          <button className="btn-outline">
+          <button onClick={exportCSV} className="btn-outline">
             <Download className="w-4 h-4 text-green-500" /> Export CSV
           </button>
-          <button className="btn-outline">
+          <button onClick={exportPDF} className="btn-outline">
             <Download className="w-4 h-4 text-red-400" /> Export PDF
           </button>
         </div>
@@ -295,14 +387,11 @@ export default function FormDashboardPage() {
               ) : (
                 paginated.map((s) => (
                   <tr key={s.id}>
-                    {/* Student Name + Avatar */}
                     <td>
                       <div className="flex items-center gap-2.5">
                         <div
                           className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                          style={{
-                            background: `hsl(${s.studentName.charCodeAt(0) * 7},60%,50%)`,
-                          }}
+                          style={{ background: `hsl(${s.studentName.charCodeAt(0) * 7},60%,50%)` }}
                         >
                           {s.studentName.split(' ').map((n) => n[0]).join('')}
                         </div>
@@ -317,7 +406,6 @@ export default function FormDashboardPage() {
                       </div>
                     </td>
 
-                    {/* Submission Date */}
                     <td className="text-sm" style={{ color: 'var(--text-muted)' }}>
                       {new Date(s.submissionDate).toLocaleDateString('en-IN', {
                         day: '2-digit',
@@ -326,19 +414,16 @@ export default function FormDashboardPage() {
                       })}
                     </td>
 
-                    {/* Status Badge */}
                     <td>
                       <span className={`badge badge-${s.status.toLowerCase()}`}>
                         {s.status}
                       </span>
                     </td>
 
-                    {/* Current Verifier */}
                     <td className="text-sm" style={{ color: 'var(--text)' }}>
                       {s.currentVerifier}
                     </td>
 
-                    {/* Actions */}
                     <td>
                       <Link
                         href={`/form-details/${s.id}`}
@@ -361,7 +446,6 @@ export default function FormDashboardPage() {
             className="px-6 py-4 border-t flex items-center justify-between flex-wrap gap-3"
             style={{ borderColor: 'var(--border)' }}
           >
-            {/* Result count */}
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               Showing{' '}
               <span className="font-semibold" style={{ color: 'var(--text)' }}>
@@ -374,9 +458,7 @@ export default function FormDashboardPage() {
               submissions
             </p>
 
-            {/* Page controls */}
             <div className="flex items-center gap-1">
-              {/* Prev */}
               <button
                 onClick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
@@ -392,7 +474,6 @@ export default function FormDashboardPage() {
                 <ChevronLeft className="w-4 h-4" />
               </button>
 
-              {/* Page numbers */}
               {getPageNumbers().map((page, i) =>
                 page === '...' ? (
                   <span
@@ -405,7 +486,7 @@ export default function FormDashboardPage() {
                 ) : (
                   <button
                     key={page}
-                    onClick={() => goToPage(page)}
+                    onClick={() => goToPage(page as number)}
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold transition-all"
                     style={{
                       background: currentPage === page ? '#3B82F6' : 'var(--bg)',
@@ -419,7 +500,6 @@ export default function FormDashboardPage() {
                 )
               )}
 
-              {/* Next */}
               <button
                 onClick={() => goToPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
