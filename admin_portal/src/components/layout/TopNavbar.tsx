@@ -162,10 +162,10 @@ export function TopNavbar() {
  
 
       <div className={styles.notificationWrapper}>
-        <button onClick={() => setShowNotifications(!showNotifications)} className={styles.iconButton}>
+        {/* <button onClick={() => setShowNotifications(!showNotifications)} className={styles.iconButton}>
           <Bell size={20} />
           {notifications > 0 && <span className={styles.notificationBadge}>{notifications}</span>}
-        </button>
+        </button> */}
 
         {showNotifications && (
           <>
